@@ -12,6 +12,7 @@ class Role(str, enum.Enum):
     DEPARTMENT_MANAGER = "department_manager"
     EMPLOYEE = "employee"
 
+# Update the User model in app/models.py
 class User(Base):
     __tablename__ = "users"
     
@@ -24,6 +25,7 @@ class User(Base):
     role = Column(Enum(Role), default=Role.EMPLOYEE, nullable=False)
     division_id = Column(Integer, ForeignKey("divisions.id"), nullable=True)
     department_id = Column(Integer, ForeignKey("departments.id", use_alter=True, name="fk_user_department"), nullable=True)
+    shift_id = Column(Integer, ForeignKey("shifts.id"), nullable=True)  # NEW FIELD
     avatar_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -32,6 +34,7 @@ class User(Base):
     # Relationships with explicit foreign_keys
     division = relationship("Division", back_populates="users")
     department = relationship("Department", back_populates="employees", foreign_keys=[department_id])
+    shift = relationship("Shift", back_populates="users")  # NEW RELATIONSHIP
     
     # Backref for managed department (only for department managers)
     managed_department = relationship("Department", back_populates="manager", foreign_keys="Department.manager_id", uselist=False)
@@ -86,6 +89,9 @@ class Shift(Base):
     end_time = Column(String, nullable=False)    # "16:00"
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationship with users
+    users = relationship("User", back_populates="shift")
 
 # Notification Model
 class Notification(Base):

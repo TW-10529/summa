@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Filter, UserPlus, Edit2, Trash2, Download, Eye, 
   Building2, Loader2, AlertCircle, CheckCircle, XCircle,
-  Mail, Phone, MapPin, Calendar
+  Mail, Phone, MapPin, Calendar, Clock
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService, divisionService, departmentService } from '../../services/api';
@@ -28,12 +28,18 @@ const EmployeeDatabase = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showDetails, setShowDetails] = useState(null);
 
+  // Add shift data state
+  const [shifts, setShifts] = useState([
+    { id: 1, name: 'Morning', start_time: '08:00', end_time: '16:00', description: 'Morning shift (8AM - 4PM)' },
+    { id: 2, name: 'Afternoon', start_time: '16:00', end_time: '00:00', description: 'Afternoon shift (4PM - 12AM)' },
+    { id: 3, name: 'Night', start_time: '00:00', end_time: '08:00', description: 'Night shift (12AM - 8AM)' }
+  ]);
+
   // Event listener for quick actions from AdminDashboard
   useEffect(() => {
     const handleOpenAddEmployeeModal = () => {
       setSelectedEmployee(null);
       setShowModal(true);
-      setMessage({ type: 'success', text: 'Ready to add new employee!' });
     };
 
     window.addEventListener('openAddEmployeeModal', handleOpenAddEmployeeModal);
@@ -143,14 +149,15 @@ const EmployeeDatabase = () => {
     return roleMap[role] || role;
   };
 
-  const getRoleColor = (role) => {
+  // FIXED: This function now returns CSS classes directly
+  const getRoleColorClasses = (role) => {
     const colorMap = {
-      'admin': 'purple',
-      'division_manager': 'blue',
-      'department_manager': 'green',
-      'employee': 'gray'
+      'admin': 'bg-purple-100 text-purple-800',
+      'division_manager': 'bg-blue-100 text-blue-800',
+      'department_manager': 'bg-green-100 text-green-800',
+      'employee': 'bg-gray-100 text-gray-800'
     };
-    return colorMap[role] || 'gray';
+    return colorMap[role] || 'bg-gray-100 text-gray-800';
   };
 
   const getDivisionName = (divisionId) => {
@@ -163,6 +170,52 @@ const EmployeeDatabase = () => {
     if (!departmentId) return 'Not Assigned';
     const department = departments.find(d => d.id === departmentId);
     return department?.name || `Department ${departmentId}`;
+  };
+
+  // Add function to get shift display
+  const getShiftDisplay = (shiftId) => {
+    if (!shiftId) return 'Not Assigned';
+    const shift = shifts.find(s => s.id === shiftId);
+    return shift ? `${shift.name} (${shift.start_time}-${shift.end_time})` : `Shift ${shiftId}`;
+  };
+
+  // Add function to get shift name only
+  const getShiftName = (shiftId) => {
+    if (!shiftId) return 'Not Assigned';
+    const shift = shifts.find(s => s.id === shiftId);
+    return shift ? shift.name : `Shift ${shiftId}`;
+  };
+
+  // Add function to get shift color
+  const getShiftColor = (shiftId) => {
+    if (!shiftId) return 'bg-gray-100 text-gray-800';
+    
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return 'bg-gray-100 text-gray-800';
+    
+    const colorMap = {
+      'Morning': 'bg-blue-100 text-blue-800',
+      'Afternoon': 'bg-orange-100 text-orange-800',
+      'Night': 'bg-purple-100 text-purple-800'
+    };
+    
+    return colorMap[shift.name] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Add function to get shift icon color
+  const getShiftIconColor = (shiftId) => {
+    if (!shiftId) return 'text-gray-500';
+    
+    const shift = shifts.find(s => s.id === shiftId);
+    if (!shift) return 'text-gray-500';
+    
+    const colorMap = {
+      'Morning': 'text-blue-500',
+      'Afternoon': 'text-orange-500',
+      'Night': 'text-purple-500'
+    };
+    
+    return colorMap[shift.name] || 'text-gray-500';
   };
 
   const handleAddEmployee = () => {
@@ -181,21 +234,83 @@ const EmployeeDatabase = () => {
 
   const handleSaveEmployee = async (employeeData) => {
     try {
+      console.log('💾 Saving employee data:', employeeData);
+      console.log('📝 Selected employee:', selectedEmployee);
+      
       if (selectedEmployee) {
-        // Update existing employee
-        await userService.updateUser(selectedEmployee.id, employeeData);
-        setSuccess('Employee updated successfully!');
+        // Update existing employee - IMPORTANT: Use proper data format
+        const updateData = { ...employeeData };
+        
+        // Remove fields that shouldn't be sent for updates
+        delete updateData.password; // Don't update password unless provided
+        if (!employeeData.password) {
+          delete updateData.password;
+        }
+        
+        // Ensure role is sent as string
+        if (updateData.role) {
+          updateData.role = updateData.role; // Already string
+        }
+        
+        // Ensure proper null values for division and department
+        if (updateData.division_id === '') {
+          updateData.division_id = null;
+        }
+        
+        if (updateData.department_id === '') {
+          updateData.department_id = null;
+        }
+
+        // Ensure proper null value for shift
+        if (updateData.shift_id === '') {
+          updateData.shift_id = null;
+        }
+        
+        console.log('📤 Final update data to API:', updateData);
+        
+        const result = await userService.updateUser(selectedEmployee.id, updateData);
+        console.log('✅ Update result:', result);
+        
+        setSuccess(`Employee "${selectedEmployee.full_name}" updated successfully!`);
       } else {
         // Create new employee
-        await userService.createUser(employeeData);
-        setSuccess('Employee added successfully!');
+        const createData = { ...employeeData };
+        
+        // Ensure required fields
+        if (!createData.password) {
+          setError('Password is required for new employees');
+          return;
+        }
+        
+        console.log('📤 Creating new employee:', createData);
+        const result = await userService.createUser(createData);
+        console.log('✅ Create result:', result);
+        
+        setSuccess(`Employee "${createData.full_name}" added successfully!`);
       }
       
       // Refresh employee list
       fetchEmployees();
       setShowModal(false);
+      
+      // Force page refresh to see changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
     } catch (error) {
-      console.error('Error saving employee:', error);
+      console.error('❌ Error saving employee:', error);
+      console.error('Error details:', error.response?.data);
+      
+      let errorMessage = 'Failed to save employee. ';
+      
+      if (error.response?.data?.detail) {
+        errorMessage += error.response.data.detail;
+      } else if (error.message) {
+        errorMessage += error.message;
+      }
+      
+      setError(errorMessage);
       throw error;
     }
   };
@@ -237,6 +352,7 @@ const EmployeeDatabase = () => {
         role: getRoleDisplay(emp.role),
         division: getDivisionName(emp.division_id),
         department: getDepartmentName(emp.department_id),
+        shift: getShiftDisplay(emp.shift_id),
         status: emp.is_active ? 'Active' : 'Inactive',
         created_at: new Date(emp.created_at).toLocaleDateString()
       }));
@@ -450,6 +566,7 @@ const EmployeeDatabase = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Division</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
@@ -488,9 +605,22 @@ const EmployeeDatabase = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full bg-${getRoleColor(employee.role)}-100 text-${getRoleColor(employee.role)}-800`}>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getRoleColorClasses(employee.role)}`}>
                         {getRoleDisplay(employee.role)}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        <Clock className={`w-4 h-4 ${getShiftIconColor(employee.shift_id)}`} />
+                        <span className={`px-2 py-1 text-xs rounded-full ${getShiftColor(employee.shift_id)}`}>
+                          {getShiftName(employee.shift_id)}
+                        </span>
+                      </div>
+                      {employee.shift_id && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {getShiftDisplay(employee.shift_id).split('(')[1]?.replace(')', '')}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(employee.is_active)}`}>
@@ -547,8 +677,8 @@ const EmployeeDatabase = () => {
                   {/* Expanded Details Row */}
                   {showDetails === employee.id && (
                     <tr className="bg-gray-50">
-                      <td colSpan="6" className="px-6 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <td colSpan="7" className="px-6 py-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div>
                             <h4 className="font-medium text-gray-800 mb-2">Contact Information</h4>
                             <div className="space-y-2">
@@ -580,6 +710,25 @@ const EmployeeDatabase = () => {
                                   Department: {getDepartmentName(employee.department_id)}
                                 </span>
                               </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-gray-800 mb-2">Work Schedule</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Clock className={`w-4 h-4 ${getShiftIconColor(employee.shift_id)}`} />
+                                <span className="text-sm text-gray-600">
+                                  Shift: {getShiftDisplay(employee.shift_id)}
+                                </span>
+                              </div>
+                              {employee.shift_id && (
+                                <div className="pl-6">
+                                  <p className="text-xs text-gray-500">
+                                    {shifts.find(s => s.id === employee.shift_id)?.description || 'No shift description available'}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                           

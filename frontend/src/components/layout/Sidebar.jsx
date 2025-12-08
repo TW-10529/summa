@@ -1,9 +1,10 @@
+
 // components/layout/Sidebar.jsx
 import React from 'react';
 import { 
   LayoutDashboard, Users, Building2, Calendar, 
   Bell, CheckCircle, FileText, Settings, LogOut,
-  BarChart3, Clock, Layers
+  BarChart3, Clock, Layers, UserCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { ROLES } from '../../utils/constants';
@@ -19,7 +20,7 @@ const Sidebar = ({ role }) => {
     { id: 'employees', label: 'Employees', icon: Users, path: '/admin/employees' },
     { id: 'divisions', label: 'Divisions', icon: Building2, path: '/admin/divisions' },
     { id: 'attendance', label: 'Attendance', icon: BarChart3, path: '/admin/attendance' },
-    { id: 'schedule-control', label: 'Schedule Control', icon: Calendar, path: '/admin/schedule-control' }, // CHANGED from '/admin/schedule'
+    { id: 'schedule-control', label: 'Schedule Control', icon: Calendar, path: '/admin/schedule-control' },
     { id: 'notifications', label: 'Notifications', icon: Bell, path: '/admin/notifications' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
   ];
@@ -32,6 +33,7 @@ const Sidebar = ({ role }) => {
     { id: 'approvals', label: 'Approvals', icon: CheckCircle, path: '/division/approvals' },
     { id: 'reports', label: 'Reports', icon: FileText, path: '/division/reports' },
     { id: 'notifications', label: 'Notifications', icon: Bell, path: '/division/notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/division/settings' },
   ];
 
   const departmentManagerMenu = [
@@ -40,6 +42,7 @@ const Sidebar = ({ role }) => {
     { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/manager/schedule' },
     { id: 'employees', label: 'Employees', icon: Users, path: '/manager/employees' },
     { id: 'notifications', label: 'Notifications', icon: Bell, path: '/manager/notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/manager/settings' },
   ];
 
   const employeeMenu = [
@@ -47,6 +50,8 @@ const Sidebar = ({ role }) => {
     { id: 'schedule', label: 'My Schedule', icon: Calendar, path: '/employee/schedule' },
     { id: 'attendance', label: 'My Attendance', icon: BarChart3, path: '/employee/attendance' },
     { id: 'requests', label: 'My Requests', icon: CheckCircle, path: '/employee/requests' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/employee/notifications' },
+    { id: 'profile', label: 'My Profile', icon: UserCircle, path: '/employee/profile' },
   ];
 
   const getMenuItems = () => {

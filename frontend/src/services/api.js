@@ -366,21 +366,49 @@ export const userService = {
     }
   },
   
-  updateUser: async (id, userData) => {
-    try {
-      const response = await api.put(`/users/${id}`, userData);
-      return response.data;
-    } catch (error) {
-      // Mock success response for development
-      console.log('Mock user update:', { id, userData });
-      return {
-        id,
-        ...userData,
-        updated_at: new Date().toISOString(),
-        message: 'User updated successfully'
-      };
+  // In your api.js, update the userService.updateUser method:
+
+updateUser: async (id, userData) => {
+  try {
+    console.log(`🔄 Updating user ${id}:`, userData);
+    
+    // Ensure proper data format
+    const formattedData = { ...userData };
+    
+    // Convert empty strings to null
+    if (formattedData.division_id === '') formattedData.division_id = null;
+    if (formattedData.department_id === '') formattedData.department_id = null;
+    if (formattedData.employee_id === '') formattedData.employee_id = null;
+    
+    // For division managers and admins, ensure department_id is null
+    if (formattedData.role === 'division_manager' || formattedData.role === 'admin') {
+      formattedData.department_id = null;
     }
-  },
+    
+    console.log(`📤 Sending formatted data:`, formattedData);
+    
+    const response = await api.put(`/users/${id}`, formattedData);
+    console.log(`✅ Update response:`, response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error(`❌ Error updating user ${id}:`, error);
+    
+    // If using mock data for development, comment this out temporarily
+    // to test with real API
+    /*
+    console.log('Using mock update response for development');
+    return {
+      id,
+      ...userData,
+      updated_at: new Date().toISOString(),
+      message: 'User updated successfully'
+    };
+    */
+    
+    throw error;
+  }
+},
   
   deleteUser: async (id) => {
     try {
@@ -796,17 +824,8 @@ export const notificationService = {
       const response = await api.post('/notifications/send', notificationData);
       return response.data;
     } catch (error) {
-      // Mock success response for development
-      console.log('Mock notification send:', notificationData);
-      return {
-        message: 'Notification sent successfully',
-        notification: {
-          id: Math.floor(Math.random() * 1000),
-          ...notificationData,
-          sent_at: new Date().toISOString(),
-          status: 'sent'
-        }
-      };
+      console.error('Error sending notification:', error);
+      return handleApiError(error, 'Failed to send notification');
     }
   },
   
@@ -815,32 +834,51 @@ export const notificationService = {
       const response = await api.get('/notifications', { params });
       return response.data;
     } catch (error) {
-      // Return mock notifications for development
-      console.log('Using mock notifications');
-      return [
-        {
-          id: 1,
-          title: 'System Maintenance',
-          message: 'Scheduled maintenance tonight at 2 AM',
-          type: 'info',
-          priority: 'medium',
-          read: false,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 2,
-          title: 'Shift Change',
-          message: 'Morning shift starting in 30 minutes',
-          type: 'alert',
-          priority: 'high',
-          read: true,
-          created_at: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
+      console.error('Error fetching notifications:', error);
+      return handleApiError(error, 'Failed to fetch notifications');
+    }
+  },
+  
+  markAsRead: async (notificationId) => {
+    try {
+      const response = await api.put(`/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return handleApiError(error, 'Failed to mark as read');
+    }
+  },
+  
+  markAllAsRead: async () => {
+    try {
+      const response = await api.put('/notifications/read-all');
+      return response.data;
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      return handleApiError(error, 'Failed to mark all as read');
+    }
+  },
+  
+  deleteNotification: async (notificationId) => {
+    try {
+      const response = await api.delete(`/notifications/${notificationId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      return handleApiError(error, 'Failed to delete notification');
+    }
+  },
+  
+  getUnreadCount: async () => {
+    try {
+      const response = await api.get('/notifications/count');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting unread count:', error);
+      return handleApiError(error, 'Failed to get unread count');
     }
   }
 };
-
 // Schedule service
 export const scheduleService = {
   createSchedule: async (scheduleData) => {

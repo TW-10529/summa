@@ -19,6 +19,7 @@ class UserBase(BaseModel):
     role: RoleEnum = RoleEnum.employee
     division_id: Optional[int] = None
     department_id: Optional[int] = None
+    shift_id: Optional[int] = None  # NEW FIELD
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,6 +32,7 @@ class UserUpdate(BaseModel):
     employee_id: Optional[str] = None
     division_id: Optional[int] = None
     department_id: Optional[int] = None
+    shift_id: Optional[int] = None  # NEW FIELD
     avatar_url: Optional[str] = None
     is_active: Optional[bool] = None
     

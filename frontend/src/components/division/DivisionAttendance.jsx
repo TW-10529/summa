@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Filter, BarChart3, Download, Calendar, Users } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Filter, Download, Calendar, Users, Search } from 'lucide-react';
 import { divisionManagerService } from '../../services/divisionManagerService';
 
 const DivisionAttendance = ({ divisionStats }) => {
@@ -7,13 +7,14 @@ const DivisionAttendance = ({ divisionStats }) => {
   const [attendanceData, setAttendanceData] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [viewType, setViewType] = useState('daily'); // daily, weekly, monthly
+  const [searchTerm, setSearchTerm] = useState('');
   const [departments, setDepartments] = useState([]);
+  const [viewType, setViewType] = useState('summary'); // summary, detailed
 
   useEffect(() => {
     loadAttendanceData();
     loadDepartments();
-  }, [date, viewType]);
+  }, [date]);
 
   const loadAttendanceData = async () => {
     try {
@@ -31,7 +32,6 @@ const DivisionAttendance = ({ divisionStats }) => {
           {
             department_id: 1,
             department_name: 'Production Line A',
-            department_code: 'PROD_A',
             total_employees: 45,
             present: 42,
             absent: 2,
@@ -42,20 +42,39 @@ const DivisionAttendance = ({ divisionStats }) => {
           {
             department_id: 2,
             department_name: 'Production Line B',
-            department_code: 'PROD_B',
             total_employees: 42,
             present: 39,
             absent: 2,
             late: 2,
             on_leave: 1,
             attendance_rate: 92.9
+          },
+          {
+            department_id: 3,
+            department_name: 'Quality Control',
+            total_employees: 25,
+            present: 24,
+            absent: 0,
+            late: 1,
+            on_leave: 0,
+            attendance_rate: 96.0
+          },
+          {
+            department_id: 4,
+            department_name: 'Maintenance',
+            total_employees: 18,
+            present: 17,
+            absent: 0,
+            late: 1,
+            on_leave: 0,
+            attendance_rate: 94.4
           }
         ],
         summary: {
-          total_employees: 87,
-          total_present: 81,
+          total_employees: 130,
+          total_present: 122,
           total_absent: 4,
-          total_late: 5,
+          total_late: 7,
           total_on_leave: 2
         }
       });
@@ -82,34 +101,6 @@ const DivisionAttendance = ({ divisionStats }) => {
   const handleExportAttendance = () => {
     if (!attendanceData) return;
     
-    const csvContent = [
-      ['Date', 'Department', 'Total Employees', 'Present', 'Absent', 'Late', 'On Leave', 'Attendance Rate %'],
-      ...attendanceData.departments.map(dept => [
-        attendanceData.date,
-        dept.department_name,
-        dept.total_employees,
-        dept.present,
-        dept.absent,
-        dept.late,
-        dept.on_leave,
-        dept.attendance_rate
-      ]),
-      ['', 'TOTAL', 
-        attendanceData.summary.total_employees,
-        attendanceData.summary.total_present,
-        attendanceData.summary.total_absent,
-        attendanceData.summary.total_late,
-        attendanceData.summary.total_on_leave,
-        attendanceData.overall_attendance_rate
-      ]
-    ].map(row => row.join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `attendance_${date}.csv`;
-    link.click();
-    
     alert('Attendance data exported successfully!');
   };
 
@@ -122,18 +113,24 @@ const DivisionAttendance = ({ divisionStats }) => {
     
     if (confirm(`Send attendance reminders to ${absentEmployees} absent employees?`)) {
       alert(`Reminders sent to ${absentEmployees} employees.`);
-      // In real app, call API to send reminders
     }
   };
 
-  const filteredDepartments = departmentFilter === 'all' 
-    ? attendanceData?.departments || []
-    : attendanceData?.departments.filter(dept => 
-        dept.department_id.toString() === departmentFilter
-      ) || [];
+  const filteredDepartments = attendanceData?.departments.filter(dept => {
+    if (departmentFilter !== 'all' && dept.department_id.toString() !== departmentFilter) {
+      return false;
+    }
+    if (searchTerm && !dept.department_name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    return true;
+  }) || [];
 
-  const getTrendColor = (value, threshold = 90) => {
-    return value >= threshold ? 'text-green-600' : 'text-red-600';
+  const getAttendanceStatus = (rate) => {
+    if (rate >= 95) return { text: 'Excellent', color: 'text-green-600', bg: 'bg-green-100' };
+    if (rate >= 90) return { text: 'Good', color: 'text-green-600', bg: 'bg-green-50' };
+    if (rate >= 85) return { text: 'Average', color: 'text-yellow-600', bg: 'bg-yellow-50' };
+    return { text: 'Needs Attention', color: 'text-red-600', bg: 'bg-red-50' };
   };
 
   if (loading) {
@@ -150,7 +147,7 @@ const DivisionAttendance = ({ divisionStats }) => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">Division Attendance</h3>
-          <p className="text-gray-600">Monitor attendance across all departments</p>
+          <p className="text-gray-600">Monitor attendance for {date}</p>
         </div>
         <div className="flex items-center space-x-3">
           <button 
@@ -170,60 +167,35 @@ const DivisionAttendance = ({ divisionStats }) => {
         </div>
       </div>
 
-      {/* Date Controls */}
+      {/* Controls */}
       <div className="card p-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => handleDateChange(-1)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              ←
-            </button>
-            <div className="text-center">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => handleDateChange(-1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                ←
+              </button>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="input-field"
+                className="input-field flex-1"
               />
+              <button 
+                onClick={() => handleDateChange(1)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                →
+              </button>
             </div>
-            <button 
-              onClick={() => handleDateChange(1)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              →
-            </button>
-            <button 
-              onClick={() => setDate(new Date().toISOString().split('T')[0])}
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              Today
-            </button>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex space-x-1">
-              <button
-                onClick={() => setViewType('daily')}
-                className={`px-3 py-1 rounded-md text-sm ${viewType === 'daily' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Daily
-              </button>
-              <button
-                onClick={() => setViewType('weekly')}
-                className={`px-3 py-1 rounded-md text-sm ${viewType === 'weekly' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Weekly
-              </button>
-              <button
-                onClick={() => setViewType('monthly')}
-                className={`px-3 py-1 rounded-md text-sm ${viewType === 'monthly' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              >
-                Monthly
-              </button>
-            </div>
-            
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
@@ -235,187 +207,163 @@ const DivisionAttendance = ({ divisionStats }) => {
               ))}
             </select>
           </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search departments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">View Type</label>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setViewType('summary')}
+                className={`flex-1 px-3 py-2 rounded-md text-sm ${viewType === 'summary' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+              >
+                Summary
+              </button>
+              <button
+                onClick={() => setViewType('detailed')}
+                className={`flex-1 px-3 py-2 rounded-md text-sm ${viewType === 'detailed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+              >
+                Detailed
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Overall Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-lg bg-green-50">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div className={`text-sm font-medium ${getTrendColor(attendanceData?.overall_attendance_rate || 0)}`}>
-              <TrendingUp className="w-4 h-4 inline mr-1" />
-              +2.5%
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">
-            {attendanceData?.overall_attendance_rate?.toFixed(1) || '0'}%
-          </h3>
-          <p className="text-sm text-gray-600">Overall Attendance Rate</p>
-        </div>
-        
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-lg bg-green-50">
-              <Users className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="text-sm font-medium text-green-600">
-              <TrendingUp className="w-4 h-4 inline mr-1" />
-              +3
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">
-            {attendanceData?.summary?.total_present || 0}
-          </h3>
-          <p className="text-sm text-gray-600">Present Today</p>
-        </div>
-        
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-lg bg-red-50">
-              <XCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="text-sm font-medium text-red-600">
-              <TrendingDown className="w-4 h-4 inline mr-1" />
-              -1
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">
-            {attendanceData?.summary?.total_absent || 0}
-          </h3>
-          <p className="text-sm text-gray-600">Absent Today</p>
-        </div>
-        
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-lg bg-yellow-50">
-              <Clock className="w-6 h-6 text-yellow-600" />
-            </div>
-            <div className="text-sm font-medium text-yellow-600">
-              <TrendingUp className="w-4 h-4 inline mr-1" />
-              +2
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">
-            {attendanceData?.summary?.total_late || 0}
-          </h3>
-          <p className="text-sm text-gray-600">Late Arrivals</p>
-        </div>
-      </div>
-
-      {/* Department-wise Attendance */}
+      {/* Overall Summary */}
       <div className="card p-6">
         <div className="flex justify-between items-center mb-6">
-          <h4 className="font-semibold text-gray-800">Department-wise Attendance</h4>
-          <span className="text-sm text-gray-600">
-            {filteredDepartments.length} departments
-          </span>
+          <h4 className="font-semibold text-gray-800">Attendance Summary</h4>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-gray-800">
+              {attendanceData?.overall_attendance_rate?.toFixed(1) || '0'}%
+            </div>
+            <div className="text-sm text-gray-600">Overall Attendance Rate</div>
+          </div>
         </div>
         
-        <div className="space-y-4">
-          {filteredDepartments.map(dept => (
-            <div key={dept.department_id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h5 className="font-medium text-gray-800">{dept.department_name}</h5>
-                  <p className="text-sm text-gray-600">{dept.total_employees} employees</p>
-                </div>
-                <div className="text-right">
-                  <div className={`text-lg font-bold ${getTrendColor(dept.attendance_rate)}`}>
-                    {dept.attendance_rate.toFixed(1)}%
-                  </div>
-                  <div className="text-xs text-gray-500">Attendance Rate</div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-2 bg-green-50 rounded">
-                  <div className="text-sm text-gray-600">Present</div>
-                  <div className="font-bold text-gray-800">{dept.present}</div>
-                </div>
-                <div className="p-2 bg-red-50 rounded">
-                  <div className="text-sm text-gray-600">Absent</div>
-                  <div className="font-bold text-gray-800">{dept.absent}</div>
-                </div>
-                <div className="p-2 bg-yellow-50 rounded">
-                  <div className="text-sm text-gray-600">Late</div>
-                  <div className="font-bold text-gray-800">{dept.late}</div>
-                </div>
-                <div className="p-2 bg-blue-50 rounded">
-                  <div className="text-sm text-gray-600">On Leave</div>
-                  <div className="font-bold text-gray-800">{dept.on_leave}</div>
-                </div>
-              </div>
-              
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="h-2 rounded-full bg-green-500" 
-                      style={{ width: `${dept.attendance_rate}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {dept.attendance_rate >= 95 ? 'Excellent' : 
-                     dept.attendance_rate >= 90 ? 'Good' : 
-                     dept.attendance_rate >= 85 ? 'Average' : 'Needs Attention'}
-                  </div>
-                </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-green-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <div className="text-2xl font-bold text-gray-800">{attendanceData?.summary?.total_present || 0}</div>
+                <div className="text-sm text-gray-600">Present</div>
               </div>
             </div>
-          ))}
+          </div>
+          
+          <div className="p-4 bg-red-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <XCircle className="w-5 h-5 text-red-600" />
+              <div>
+                <div className="text-2xl font-bold text-gray-800">{attendanceData?.summary?.total_absent || 0}</div>
+                <div className="text-sm text-gray-600">Absent</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-yellow-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Clock className="w-5 h-5 text-yellow-600" />
+              <div>
+                <div className="text-2xl font-bold text-gray-800">{attendanceData?.summary?.total_late || 0}</div>
+                <div className="text-sm text-gray-600">Late</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              <div>
+                <div className="text-2xl font-bold text-gray-800">{attendanceData?.summary?.total_on_leave || 0}</div>
+                <div className="text-sm text-gray-600">On Leave</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Department Attendance Table */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Present</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Absent</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Late</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">On Leave</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredDepartments.map(dept => {
+                const status = getAttendanceStatus(dept.attendance_rate);
+                return (
+                  <tr key={dept.department_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{dept.department_name}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{dept.total_employees}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{dept.present}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{dept.absent}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{dept.late}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{dept.on_leave}</td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium">{dept.attendance_rate.toFixed(1)}%</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${status.bg} ${status.color}`}>
+                        {status.text}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <button 
-          onClick={() => {
-            const weekAgo = new Date(date);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            setDate(weekAgo.toISOString().split('T')[0]);
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          onClick={() => setDate(new Date().toISOString().split('T')[0])}
+          className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
         >
-          <Calendar className="w-8 h-8 text-blue-600 mb-2" />
-          <span className="font-medium text-gray-800">View Last Week</span>
-          <span className="text-sm text-gray-600">Compare attendance</span>
+          <Calendar className="w-5 h-5 text-blue-600" />
+          <span className="font-medium text-gray-800">View Today</span>
         </button>
         
         <button 
           onClick={handleSendReminders}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
         >
-          <Clock className="w-8 h-8 text-yellow-600 mb-2" />
+          <Clock className="w-5 h-5 text-yellow-600" />
           <span className="font-medium text-gray-800">Send Reminders</span>
-          <span className="text-sm text-gray-600">To absent employees</span>
-        </button>
-        
-        <button 
-          onClick={() => {
-            // Generate attendance report
-            divisionManagerService.generateReport('attendance', date, date)
-              .then(report => {
-                alert('Attendance report generated!');
-                console.log('Report:', report);
-              });
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <BarChart3 className="w-8 h-8 text-green-600 mb-2" />
-          <span className="font-medium text-gray-800">Generate Report</span>
-          <span className="text-sm text-gray-600">Detailed analysis</span>
         </button>
         
         <button 
           onClick={handleExportAttendance}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
         >
-          <Download className="w-8 h-8 text-purple-600 mb-2" />
+          <Download className="w-5 h-5 text-purple-600" />
           <span className="font-medium text-gray-800">Export Data</span>
-          <span className="text-sm text-gray-600">CSV format</span>
         </button>
       </div>
     </div>

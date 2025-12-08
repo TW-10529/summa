@@ -1,4 +1,4 @@
-# seed.py - UPDATED WITH NOTIFICATIONS
+# seed.py - UPDATED WITH SHIFT FIELD
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -18,7 +18,7 @@ def seed_database():
         # Drop tables in correct order to avoid circular dependency
         print("Dropping existing tables...")
         with engine.connect() as conn:
-            # Drop tables manually in correct order (include notifications)
+            # Drop tables manually in correct order
             conn.execute(text("DROP TABLE IF EXISTS notifications CASCADE"))
             conn.execute(text("DROP TABLE IF EXISTS audit_logs CASCADE"))
             conn.execute(text("DROP TABLE IF EXISTS system_settings CASCADE"))
@@ -32,6 +32,22 @@ def seed_database():
         # Create all tables
         print("Creating tables...")
         models.Base.metadata.create_all(bind=engine)
+        
+        # Create shifts first (since users will reference them)
+        print("Creating shifts...")
+        shifts_data = [
+            {"name": "Morning", "start_time": "08:00", "end_time": "16:00", "description": "Morning shift (8AM - 4PM)"},
+            {"name": "Afternoon", "start_time": "16:00", "end_time": "00:00", "description": "Afternoon shift (4PM - 12AM)"},
+            {"name": "Night", "start_time": "00:00", "end_time": "08:00", "description": "Night shift (12AM - 8AM)"},
+        ]
+        
+        shifts = {}
+        for shift_data in shifts_data:
+            shift = models.Shift(**shift_data)
+            db.add(shift)
+            db.flush()  # Flush to get the ID
+            shifts[shift.name] = shift
+            print(f"✓ Shift {shift_data['name']} created")
         
         # Create admin user
         admin_user = models.User(
@@ -162,6 +178,7 @@ def seed_database():
                 "role": models.Role.DEPARTMENT_MANAGER,
                 "division_id": divisions["Production"].id,
                 "department_id": departments["PROD_A"].id,
+                "shift_id": shifts["Morning"].id,  # Assign shift
                 "password": "password123"
             },
             {
@@ -172,6 +189,7 @@ def seed_database():
                 "role": models.Role.DEPARTMENT_MANAGER,
                 "division_id": divisions["Production"].id,
                 "department_id": departments["PROD_B"].id,
+                "shift_id": shifts["Afternoon"].id,  # Assign shift
                 "password": "password123"
             },
             {
@@ -182,6 +200,7 @@ def seed_database():
                 "role": models.Role.DEPARTMENT_MANAGER,
                 "division_id": divisions["Quality Assurance"].id,
                 "department_id": departments["QC_IN"].id,
+                "shift_id": shifts["Morning"].id,  # Assign shift
                 "password": "password123"
             },
         ]
@@ -197,6 +216,7 @@ def seed_database():
                 role=mgr_data["role"],
                 division_id=mgr_data["division_id"],
                 department_id=mgr_data["department_id"],
+                shift_id=mgr_data.get("shift_id"),
                 is_active=True
             )
             db.add(user)
@@ -210,7 +230,7 @@ def seed_database():
         departments["QC_IN"].manager_id = department_manager_users["qc_manager"].id
         print("✓ Managers assigned to departments")
         
-        # Create sample employees
+        # Create sample employees with shift assignments
         employees_data = [
             {
                 "email": "employee1@factory.com",
@@ -220,6 +240,7 @@ def seed_database():
                 "role": models.Role.EMPLOYEE,
                 "division_id": divisions["Production"].id,
                 "department_id": departments["PROD_A"].id,
+                "shift_id": shifts["Morning"].id,
                 "password": "password123"
             },
             {
@@ -230,6 +251,7 @@ def seed_database():
                 "role": models.Role.EMPLOYEE,
                 "division_id": divisions["Production"].id,
                 "department_id": departments["PROD_A"].id,
+                "shift_id": shifts["Afternoon"].id,
                 "password": "password123"
             },
             {
@@ -240,6 +262,7 @@ def seed_database():
                 "role": models.Role.EMPLOYEE,
                 "division_id": divisions["Quality Assurance"].id,
                 "department_id": departments["QC_IN"].id,
+                "shift_id": shifts["Morning"].id,
                 "password": "password123"
             },
             {
@@ -250,6 +273,7 @@ def seed_database():
                 "role": models.Role.EMPLOYEE,
                 "division_id": divisions["Maintenance"].id,
                 "department_id": departments["MECH"].id,
+                "shift_id": shifts["Night"].id,
                 "password": "password123"
             },
             {
@@ -260,6 +284,7 @@ def seed_database():
                 "role": models.Role.EMPLOYEE,
                 "division_id": divisions["Logistics"].id,
                 "department_id": departments["WARE"].id,
+                "shift_id": shifts["Afternoon"].id,
                 "password": "password123"
             },
         ]
@@ -275,24 +300,13 @@ def seed_database():
                 role=emp_data["role"],
                 division_id=emp_data["division_id"],
                 department_id=emp_data.get("department_id"),
+                shift_id=emp_data.get("shift_id"),
                 is_active=True
             )
             db.add(user)
             db.flush()
             employee_users[emp_data["username"]] = user
-            print(f"✓ Employee {emp_data['full_name']} created")
-        
-        # Create sample shifts
-        shifts_data = [
-            {"name": "Morning", "start_time": "08:00", "end_time": "16:00", "description": "Morning shift"},
-            {"name": "Afternoon", "start_time": "16:00", "end_time": "00:00", "description": "Afternoon shift"},
-            {"name": "Night", "start_time": "00:00", "end_time": "08:00", "description": "Night shift"},
-        ]
-        
-        for shift_data in shifts_data:
-            shift = models.Shift(**shift_data)
-            db.add(shift)
-            print(f"✓ Shift {shift_data['name']} created")
+            print(f"✓ Employee {emp_data['full_name']} created with shift assignment")
         
         # Create system settings
         print("Creating system settings...")
@@ -451,6 +465,8 @@ def seed_database():
         print("Department Manager A: dept_manager_a / password123")
         print("Employee 1: employee1 / password123")
         print("\nFeatures available:")
+        print("- Shift management with 3 shifts per day")
+        print("- Shift assignments for employees and managers")
         print("- Full notification system with sample data")
         print("- System settings pre-configured")
         print("- Audit logs for tracking")

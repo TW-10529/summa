@@ -1,13 +1,12 @@
 // components/division/DepartmentManagement.jsx - UPDATED
 import React, { useState, useEffect } from 'react';
-import { Users, Building2, Plus, Edit2, Trash2, Mail, Phone, Download, Filter, Search, UserPlus, UserMinus } from 'lucide-react';
+import { Users, Building2, Plus, Edit2, Trash2, Mail, Phone, Download, Filter, Search, UserPlus, UserMinus, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { divisionManagerService } from '../../services/divisionManagerService';
 
 const DepartmentManagement = ({ departments: propDepartments }) => {
   const { user } = useAuth();
   
-  // Use departments passed from parent or fetch them
   const [departments, setDepartments] = useState(propDepartments || []);
   const [departmentManagers, setDepartmentManagers] = useState([]);
   const [loading, setLoading] = useState(!propDepartments);
@@ -16,6 +15,8 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedManagers, setSelectedManagers] = useState([]);
   const [showAddDepartment, setShowAddDepartment] = useState(false);
+  const [showDepartmentDetails, setShowDepartmentDetails] = useState(false);
+  const [selectedDeptForDetails, setSelectedDeptForDetails] = useState(null);
   const [newDepartment, setNewDepartment] = useState({
     name: '',
     code: '',
@@ -23,7 +24,6 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
   });
 
   useEffect(() => {
-    // If departments weren't passed from parent, fetch them
     if (!propDepartments) {
       const fetchDepartments = async () => {
         try {
@@ -41,7 +41,6 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
     }
   }, [propDepartments]);
 
-  // Mock manager data
   useEffect(() => {
     if (departments.length > 0) {
       const mockManagers = departments.map(dept => ({
@@ -74,18 +73,16 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
     }
 
     try {
-      // Create new department object
       const newDept = {
         id: departments.length + 1,
         ...newDepartment,
-        division_id: 1,
+        division_id: user.division_id || 1,
         manager_id: null,
         created_at: new Date().toISOString(),
         manager: null,
         employee_count: 0
       };
 
-      // Add to departments list
       setDepartments([...departments, newDept]);
       setNewDepartment({ name: '', code: '', description: '' });
       setShowAddDepartment(false);
@@ -111,17 +108,20 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
       return;
     }
 
-    // Update the department
     setDepartments(departments.map(dept => 
       dept.id === managerId 
         ? { ...dept, manager_id: null, manager: null }
         : dept
     ));
 
-    // Update managers list
     setDepartmentManagers(departmentManagers.filter(m => m.id !== managerId));
     
     alert('✅ Manager removed successfully!');
+  };
+
+  const handleViewDepartmentDetails = (dept) => {
+    setSelectedDeptForDetails(dept);
+    setShowDepartmentDetails(true);
   };
 
   const handleExportDepartments = () => {
@@ -146,10 +146,8 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
 
     if (action === 'contact') {
       alert(`Contacting ${selectedManagers.length} managers...`);
-      // In real app, this would send emails
     } else if (action === 'remove') {
       if (confirm(`Remove ${selectedManagers.length} selected managers?`)) {
-        // Remove selected managers
         setDepartmentManagers(departmentManagers.filter(m => !selectedManagers.includes(m.id)));
         setSelectedManagers([]);
         alert(`${selectedManagers.length} managers removed successfully!`);
@@ -224,7 +222,6 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
               <option value="all">All Departments</option>
               <option value="with_manager">With Manager</option>
               <option value="without_manager">Without Manager</option>
-              <option value="active">Active</option>
             </select>
           </div>
         </div>
@@ -308,13 +305,11 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
               
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <button 
-                  onClick={() => {
-                    // View department details
-                    alert(`Viewing details for ${dept.name}`);
-                  }}
-                  className="w-full btn-secondary text-sm"
+                  onClick={() => handleViewDepartmentDetails(dept)}
+                  className="w-full btn-secondary text-sm flex items-center justify-center space-x-2"
                 >
-                  View Department Details
+                  <Eye className="w-4 h-4" />
+                  <span>View Department Details</span>
                 </button>
               </div>
             </div>
@@ -452,6 +447,162 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
           </table>
         </div>
       </div>
+
+      {/* Department Details Modal */}
+      {showDepartmentDetails && selectedDeptForDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800">{selectedDeptForDetails.name} Details</h4>
+                <p className="text-gray-600">Department code: {selectedDeptForDetails.code}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDepartmentDetails(false);
+                  setSelectedDeptForDetails(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h5 className="font-medium text-gray-800 mb-3">Basic Information</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-600">Department Name</label>
+                    <p className="font-medium">{selectedDeptForDetails.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600">Department Code</label>
+                    <p className="font-medium">{selectedDeptForDetails.code}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600">Total Employees</label>
+                    <p className="font-medium">{selectedDeptForDetails.employee_count || 0}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600">Created Date</label>
+                    <p className="font-medium">
+                      {new Date(selectedDeptForDetails.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                {selectedDeptForDetails.description && (
+                  <div className="mt-4">
+                    <label className="block text-sm text-gray-600">Description</label>
+                    <p className="font-medium mt-1">{selectedDeptForDetails.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Manager Information */}
+              <div>
+                <h5 className="font-medium text-gray-800 mb-3">Manager Information</h5>
+                {selectedDeptForDetails.manager ? (
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        className="h-12 w-12 rounded-full"
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedDeptForDetails.manager.name}`}
+                        alt=""
+                      />
+                      <div>
+                        <p className="font-medium text-gray-800">{selectedDeptForDetails.manager.name}</p>
+                        <p className="text-sm text-gray-600">{selectedDeptForDetails.manager.email}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Employee ID: {selectedDeptForDetails.manager.employee_id}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg text-center">
+                    <p className="text-gray-600">No manager assigned</p>
+                    <button 
+                      onClick={() => {
+                        setShowDepartmentDetails(false);
+                        setSelectedDeptForDetails(null);
+                        handleAssignManager(selectedDeptForDetails.id);
+                      }}
+                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      Assign a manager
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Department Statistics */}
+              <div>
+                <h5 className="font-medium text-gray-800 mb-3">Department Statistics</h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg text-center">
+                    <div className="text-lg font-bold text-gray-800">92%</div>
+                    <div className="text-xs text-gray-600">Attendance Rate</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg text-center">
+                    <div className="text-lg font-bold text-gray-800">88%</div>
+                    <div className="text-xs text-gray-600">Productivity</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg text-center">
+                    <div className="text-lg font-bold text-gray-800">12</div>
+                    <div className="text-xs text-gray-600">Avg Hours/Week</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg text-center">
+                    <div className="text-lg font-bold text-gray-800">4.2</div>
+                    <div className="text-xs text-gray-600">Avg Rating</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div>
+                <h5 className="font-medium text-gray-800 mb-3">Recent Activity</h5>
+                <div className="space-y-2">
+                  {[
+                    { action: 'Shift schedule updated', time: '2 hours ago' },
+                    { action: 'New employee onboarded', time: '1 day ago' },
+                    { action: 'Monthly report generated', time: '2 days ago' },
+                    { action: 'Equipment maintenance completed', time: '3 days ago' },
+                  ].map((activity, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                      <span className="text-sm text-gray-700">{activity.action}</span>
+                      <span className="text-xs text-gray-500">{activity.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowDepartmentDetails(false);
+                    setSelectedDeptForDetails(null);
+                  }}
+                  className="flex-1 btn-secondary"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDepartmentDetails(false);
+                    setSelectedDeptForDetails(null);
+                    handleAssignManager(selectedDeptForDetails.id);
+                  }}
+                  className="flex-1 btn-primary"
+                >
+                  Manage Department
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Department Modal */}
       {showAddDepartment && (
@@ -593,11 +744,9 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
                 <button 
                   className="flex-1 btn-primary"
                   onClick={() => {
-                    // Get selected manager
                     const select = document.querySelector('select');
                     const selectedManager = select.options[select.selectedIndex].text;
                     
-                    // Update department
                     const dept = departments.find(d => d.id === selectedDepartment);
                     if (dept) {
                       const updatedDept = {
@@ -615,7 +764,6 @@ const DepartmentManagement = ({ departments: propDepartments }) => {
                         d.id === selectedDepartment ? updatedDept : d
                       ));
                       
-                      // Add to managers list
                       setDepartmentManagers([
                         ...departmentManagers,
                         {

@@ -4,14 +4,19 @@ import DivisionSchedule from './DivisionSchedule';
 import DepartmentManagement from './DepartmentManagement';
 import DivisionApprovals from './DivisionApprovals';
 import DivisionReports from './DivisionReports';
-import { Building2, Users, Clock, BarChart3, TrendingUp, Layers, Bell, FileText, CheckCircle } from 'lucide-react';
+import Notifications from './Notifications';
+import DivisionSettings from './DivisionSettings';
+import { 
+  Building2, Users, Clock, BarChart3, TrendingUp, Layers, 
+  Bell, FileText, CheckCircle, Settings as SettingsIcon, ArrowLeft 
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { divisionManagerService } from '../../services/divisionManagerService';
-import { useNavigate } from 'react-router-dom'; // ADD THIS
+import { useNavigate } from 'react-router-dom';
 
 const DivisionDashboard = ({ activeTab }) => {
   const { user } = useAuth();
-  const navigate = useNavigate(); // ADD THIS
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [divisionStats, setDivisionStats] = useState(null);
   const [departments, setDepartments] = useState([]);
@@ -30,11 +35,6 @@ const DivisionDashboard = ({ activeTab }) => {
         const depts = await divisionManagerService.getDepartments();
         setDepartments(depts);
         
-        // Load attendance for dashboard
-        if (activeTab === 'dashboard') {
-          const attendance = await divisionManagerService.getAttendance();
-          setAttendanceData(attendance);
-        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -76,7 +76,7 @@ const DivisionDashboard = ({ activeTab }) => {
     },
   ];
 
-  // FIXED: Helper function to get color classes
+  // Helper function to get color classes
   const getColorClass = (color, type = 'bg') => {
     const colorMap = {
       blue: type === 'bg' ? 'bg-blue-50' : 'text-blue-600',
@@ -88,7 +88,7 @@ const DivisionDashboard = ({ activeTab }) => {
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (loading && activeTab === 'dashboard') {
       return (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -108,238 +108,233 @@ const DivisionDashboard = ({ activeTab }) => {
       case 'reports':
         return <DivisionReports />;
       case 'notifications':
-        return (
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800">Division Notifications</h3>
-                <p className="text-gray-600">Send and manage notifications for your division</p>
-              </div>
-              <button 
-                className="btn-primary flex items-center space-x-2"
-                onClick={async () => {
-                  const notification = {
-                    title: 'Division Announcement',
-                    message: 'Important announcement for all departments',
-                    type: 'announcement',
-                    departments: 'all'
-                  };
-                  await divisionManagerService.sendNotification(notification);
-                  alert('Notification sent successfully!');
-                }}
-              >
-                <Bell className="w-4 h-4" /> {/* Changed from Clock to Bell */}
-                <span>Send Division Alert</span>
-              </button>
-            </div>
-
-            <div className="card p-6">
-              <h4 className="font-semibold text-gray-800 mb-4">Send Division Notification</h4>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notification Type</label>
-                  <select id="notificationType" className="input-field">
-                    <option value="info">Information</option>
-                    <option value="alert">Alert</option>
-                    <option value="warning">Warning</option>
-                    <option value="announcement">Announcement</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                  <input
-                    id="notificationTitle"
-                    type="text"
-                    placeholder="Enter notification title..."
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                  <textarea
-                    id="notificationMessage"
-                    placeholder="Enter notification message..."
-                    rows="3"
-                    className="input-field"
-                  />
-                </div>
-                <button
-                  className="btn-primary w-full"
-                  onClick={async () => {
-                    const title = document.getElementById('notificationTitle').value;
-                    const message = document.getElementById('notificationMessage').value;
-                    const type = document.getElementById('notificationType').value;
-                    
-                    if (!title || !message) {
-                      alert('Please fill in all fields');
-                      return;
-                    }
-                    
-                    const notification = {
-                      title,
-                      message,
-                      type,
-                      departments: 'all'
-                    };
-                    
-                    const result = await divisionManagerService.sendNotification(notification);
-                    if (result.message) {
-                      alert('Notification sent successfully!');
-                      document.getElementById('notificationTitle').value = '';
-                      document.getElementById('notificationMessage').value = '';
-                    }
-                  }}
-                >
-                  Send Notification
-                </button>
-              </div>
-            </div>
-          </div>
-        );
+        return <Notifications />;
+      case 'settings':
+        return <DivisionSettings />;
       default:
-        return (
-          <div className="space-y-6">
-            {/* Welcome Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-3xl font-bold mb-2">
-                    {divisionStats?.division?.name || 'Division'} Dashboard
-                  </h1>
-                  <p className="text-blue-100">
-                    {divisionStats?.division?.description || 'Manage your division operations'}
-                  </p>
-                  <div className="flex items-center space-x-4 mt-4">
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-4 h-4" />
-                      <span>{divisionStats?.stats?.total_departments || 0} Departments</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4" />
-                      <span>{divisionStats?.stats?.total_employees || 0} Employees</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white/20 p-4 rounded-xl">
-                  <Building2 className="w-8 h-8" />
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, index) => (
-                <div key={index} className="card p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${getColorClass(stat.color, 'bg')}`}>
-                      {React.createElement(stat.icon, { 
-                        className: getColorClass(stat.color, 'text') 
-                      })}
-                    </div>
-                    <span className={`text-sm font-medium ${
-                      stat.change.startsWith('+') ? 'text-green-600' : 'text-gray-600'
-                    }`}>
-                      {stat.change}
-                    </span>
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</h3>
-                  <p className="text-sm text-gray-600">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Department Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="card p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Department Overview</h3>
-                <div className="space-y-3">
-                  {departments.map((dept, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                      <div>
-                        <p className="font-medium text-gray-800">{dept.name}</p>
-                        <p className="text-sm text-gray-600">
-                          Manager: {dept.manager?.name || 'Not assigned'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-gray-800">{dept.employee_count || 0}</p>
-                        <p className="text-xs text-gray-500">employees</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="card p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  {[
-                    { 
-                      label: 'Generate Division Schedule', 
-                      icon: Clock,
-                      action: async () => {
-                        const schedule = await divisionManagerService.getSchedule();
-                        console.log('Schedule generated:', schedule);
-                        alert('Schedule generated successfully!');
-                      }
-                    },
-                    { 
-                      label: 'View Attendance Reports', 
-                      icon: FileText,
-                      action: async () => {
-                        const report = await divisionManagerService.generateReport('attendance');
-                        console.log('Report generated:', report);
-                        alert('Attendance report generated!');
-                        navigate('/division/reports'); // FIXED: Use navigate instead
-                      }
-                    },
-                    { 
-                      label: 'Manage Department Managers', 
-                      icon: Users,
-                      action: () => {
-                        navigate('/division/departments'); // FIXED: Use navigate instead
-                      }
-                    },
-                    { 
-                      label: 'Check Pending Approvals', 
-                      icon: CheckCircle,
-                      action: async () => {
-                        const approvals = await divisionManagerService.getPendingApprovals();
-                        console.log('Pending approvals:', approvals);
-                        navigate('/division/approvals'); // FIXED: Use navigate instead
-                      }
-                    },
-                  ].map((action, idx) => (
-                    <button
-                      key={idx}
-                      onClick={action.action}
-                      className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-                    >
-                      <span className="font-medium text-gray-700">{action.label}</span>
-                      <action.icon className="w-5 h-5 text-gray-500" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return renderDashboard();
     }
   };
 
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 capitalize">
-          {divisionStats?.division?.name || 'Division'} Dashboard
-        </h2>
-        <p className="text-gray-600 mt-1">
-          {activeTab === 'dashboard' 
-            ? 'Division management overview'
-            : `Manage division ${activeTab.replace('-', ' ')}`}
-        </p>
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      {/* Welcome Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              {divisionStats?.division?.name || 'Division'} Dashboard
+            </h1>
+            <p className="text-blue-100">
+              {divisionStats?.division?.description || 'Manage your division operations'}
+            </p>
+            <div className="flex items-center space-x-4 mt-4">
+              <div className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>{divisionStats?.stats?.total_departments || 0} Departments</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Clock className="w-4 h-4" />
+                <span>{divisionStats?.stats?.total_employees || 0} Employees</span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white/20 p-4 rounded-xl">
+            <Building2 className="w-8 h-8" />
+          </div>
+        </div>
       </div>
-      {renderContent()}
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <div key={index} className="card p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => {
+              if (index === 0) navigate('/division/departments');
+              else if (index === 1) navigate('/division/attendance');
+              else if (index === 2) navigate('/division/attendance');
+              else if (index === 3) navigate('/division/schedule');
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-3 rounded-lg ${getColorClass(stat.color, 'bg')}`}>
+                {React.createElement(stat.icon, { 
+                  className: getColorClass(stat.color, 'text') 
+                })}
+              </div>
+              <span className={`text-sm font-medium ${
+                stat.change.startsWith('+') ? 'text-green-600' : 'text-gray-600'
+              }`}>
+                {stat.change}
+              </span>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</h3>
+            <p className="text-sm text-gray-600">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Department Overview */}
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Department Overview</h3>
+          <button 
+            onClick={() => navigate('/division/departments')}
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+          >
+            <span>Manage Departments</span>
+            <Building2 className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          {departments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>No departments found</p>
+            </div>
+          ) : (
+            departments.slice(0, 6).map((dept, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                onClick={() => navigate(`/division/departments?dept=${dept.id}`)}
+              >
+                <div>
+                  <p className="font-medium text-gray-800">{dept.name}</p>
+                  <p className="text-sm text-gray-600">
+                    Manager: {dept.manager?.name || 'Not assigned'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-gray-800">{dept.employee_count || 0}</p>
+                  <p className="text-xs text-gray-500">employees</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        
+        {departments.length > 6 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <button 
+              onClick={() => navigate('/division/departments')}
+              className="w-full text-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              View all {departments.length} departments →
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Activity */}
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Recent Activity</h3>
+          <button 
+            onClick={() => navigate('/division/settings')}
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+          >
+            <span>View logs</span>
+            <FileText className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          {[
+            { action: 'Updated department schedule', user: 'You', time: '10 min ago' },
+            { action: 'Approved leave request', user: 'John Doe', time: '1 hour ago' },
+            { action: 'Added new employee', user: 'Sarah Johnson', time: '2 hours ago' },
+            { action: 'Generated monthly report', user: 'System', time: 'Yesterday' },
+            { action: 'Updated division settings', user: 'You', time: '2 days ago' },
+          ].map((activity, idx) => (
+            <div key={idx} className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                activity.user === 'You' ? 'bg-blue-100' : 'bg-gray-100'
+              }`}>
+                <Users className={`w-4 h-4 ${
+                  activity.user === 'You' ? 'text-blue-600' : 'text-gray-600'
+                }`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">{activity.user}</span>
+                  {' '}{activity.action}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {activity.time}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-500">
+              Showing 5 of recent activities
+            </span>
+            <button 
+              onClick={() => navigate('/division/settings')}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              View all activity →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="mb-6 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 capitalize">
+              {activeTab === 'dashboard' ? `${divisionStats?.division?.name || 'Division'} Dashboard` :
+               activeTab === 'settings' ? 'Division Settings' :
+               activeTab === 'notifications' ? 'Division Notifications' :
+               activeTab === 'departments' ? 'Department Management' :
+               activeTab === 'approvals' ? 'Approval Requests' :
+               activeTab === 'reports' ? 'Division Reports' :
+               activeTab === 'attendance' ? 'Attendance Management' :
+               activeTab === 'schedule' ? 'Schedule Management' :
+               `Division ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}`}
+            </h2>
+            <p className="text-gray-600 mt-1">
+              {activeTab === 'dashboard' 
+                ? 'Division management overview'
+                : activeTab === 'settings'
+                ? 'Configure division preferences and settings'
+                : activeTab === 'notifications'
+                ? 'Send and manage division notifications'
+                : activeTab === 'departments'
+                ? 'Manage departments and assign managers'
+                : activeTab === 'approvals'
+                ? 'Review and approve requests'
+                : activeTab === 'reports'
+                ? 'Generate and view division reports'
+                : activeTab === 'attendance'
+                ? 'Track and manage division attendance'
+                : activeTab === 'schedule'
+                ? 'Manage division work schedules'
+                : `Manage division ${activeTab.replace('-', ' ')}`}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            {activeTab !== 'dashboard' && (
+              <button
+                onClick={() => navigate('/division')}
+                className="btn-secondary flex items-center space-x-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Dashboard</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="pb-8 px-6">
+        {renderContent()}
+      </div>
     </div>
   );
 };

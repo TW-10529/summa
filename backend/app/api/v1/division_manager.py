@@ -1,3 +1,4 @@
+# app/api/v1/division_manager.py - UPDATED WITH SETTINGS ENDPOINT
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -24,6 +25,109 @@ def verify_division_manager(current_user: models.User):
         )
     
     return current_user.division_id
+
+@router.get("/settings")
+def get_division_settings(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Get division-specific settings"""
+    division_id = verify_division_manager(current_user)
+    
+    try:
+        # Get division info
+        division = db.query(models.Division).filter(models.Division.id == division_id).first()
+        if not division:
+            raise HTTPException(status_code=404, detail="Division not found")
+        
+        # Get division statistics
+        department_count = db.query(models.Department).filter(
+            models.Department.division_id == division_id
+        ).count()
+        
+        total_employees = db.query(models.User).filter(
+            models.User.division_id == division_id
+        ).count()
+        
+        active_employees = db.query(models.User).filter(
+            models.User.division_id == division_id,
+            models.User.is_active == True
+        ).count()
+        
+        # Get managers in this division
+        managers = db.query(models.User).filter(
+            models.User.division_id == division_id,
+            models.User.role.in_([models.Role.DIVISION_MANAGER, models.Role.DEPARTMENT_MANAGER])
+        ).all()
+        
+        managers_list = []
+        for manager in managers:
+            manager_info = {
+                "id": manager.id,
+                "name": manager.full_name,
+                "email": manager.email,
+                "role": manager.role.value,
+                "employee_id": manager.employee_id
+            }
+            
+            # Add department info for department managers
+            if manager.role == models.Role.DEPARTMENT_MANAGER and manager.department_id:
+                department = db.query(models.Department).filter(
+                    models.Department.id == manager.department_id
+                ).first()
+                if department:
+                    manager_info["department"] = {
+                        "id": department.id,
+                        "name": department.name,
+                        "code": department.code
+                    }
+            
+            managers_list.append(manager_info)
+        
+        # Division settings (could be stored in database in real implementation)
+        division_settings = {
+            "division_info": {
+                "id": division.id,
+                "name": division.name,
+                "description": division.description,
+                "color": division.color,
+                "created_at": division.created_at.isoformat() if division.created_at else None
+            },
+            "statistics": {
+                "total_departments": department_count,
+                "total_employees": total_employees,
+                "active_employees": active_employees,
+                "inactive_employees": total_employees - active_employees,
+                "managers_count": len(managers_list)
+            },
+            "managers": managers_list,
+            "settings": {
+                "allow_self_scheduling": True,
+                "require_approval_for_time_off": True,
+                "notify_on_late_arrival": True,
+                "max_overtime_hours": 20,
+                "shift_change_deadline_hours": 24,
+                "attendance_report_frequency": "weekly",
+                "default_shift_start": "08:00",
+                "default_shift_end": "16:00",
+                "allow_shift_swaps": True,
+                "auto_approve_overtime": False
+            },
+            "system_status": {
+                "attendance_tracking": "active",
+                "scheduling_system": "active",
+                "notification_system": "active",
+                "report_generation": "active"
+            }
+        }
+        
+        return division_settings
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching division settings: {str(e)}"
+        )
 
 @router.get("/dashboard/stats")
 def get_dashboard_stats(

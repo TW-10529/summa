@@ -1,3 +1,4 @@
+
 // App.jsx - COMPLETE UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -84,6 +85,7 @@ function AppContent() {
       else if (path.includes('/approvals') || path.endsWith('/division/approvals')) setActiveTab('approvals');
       else if (path.includes('/reports') || path.endsWith('/division/reports')) setActiveTab('reports');
       else if (path.includes('/notifications') || path.endsWith('/division/notifications')) setActiveTab('notifications');
+      else if (path.includes('/settings') || path.endsWith('/division/settings')) setActiveTab('settings');
       else setActiveTab('dashboard');
     }
     
@@ -93,6 +95,7 @@ function AppContent() {
       else if (path.includes('/schedule') || path.endsWith('/manager/schedule')) setActiveTab('schedule');
       else if (path.includes('/employees') || path.endsWith('/manager/employees')) setActiveTab('employees');
       else if (path.includes('/notifications') || path.endsWith('/manager/notifications')) setActiveTab('notifications');
+      else if (path.includes('/settings') || path.endsWith('/manager/settings')) setActiveTab('settings');
       else setActiveTab('dashboard');
     }
     
@@ -176,6 +179,10 @@ function AppContent() {
                   element={<DivisionDashboard activeTab={activeTab} />}
                 />
                 <Route 
+                  path="/division/dashboard" 
+                  element={<DivisionDashboard activeTab="dashboard" />}
+                />
+                <Route 
                   path="/division/attendance" 
                   element={<DivisionDashboard activeTab="attendance" />}
                 />
@@ -198,6 +205,10 @@ function AppContent() {
                 <Route 
                   path="/division/notifications" 
                   element={<DivisionDashboard activeTab="notifications" />}
+                />
+                <Route 
+                  path="/division/settings" 
+                  element={<DivisionDashboard activeTab="settings" />}
                 />
               </>
             )}
@@ -229,6 +240,10 @@ function AppContent() {
                 <Route 
                   path="/manager/notifications" 
                   element={<ManagerDashboard activeTab="notifications" />}
+                />
+                <Route 
+                  path="/manager/settings" 
+                  element={<ManagerDashboard activeTab="settings" />}
                 />
               </>
             )}

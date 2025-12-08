@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Printer, TrendingUp, TrendingDown, Calendar, Filter, BarChart3, Users, Clock } from 'lucide-react';
+import { FileText, Download, Printer, Calendar, Filter, BarChart3, Users, Clock, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { divisionManagerService } from '../../services/divisionManagerService';
 
@@ -12,6 +12,7 @@ const DivisionReports = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [generatingReport, setGeneratingReport] = useState(false);
   const [departments, setDepartments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadDepartments();
@@ -30,12 +31,13 @@ const DivisionReports = () => {
   const loadGeneratedReports = async () => {
     try {
       setLoading(true);
-      // In a real app, this would fetch from API
       const mockReports = [
-        { id: 1, name: 'Monthly Attendance Report', type: 'attendance', generated: new Date().toISOString().split('T')[0], size: '2.4 MB', status: 'ready', format: 'pdf' },
-        { id: 2, name: 'Weekly Shift Coverage', type: 'schedule', generated: new Date(Date.now() - 86400000).toISOString().split('T')[0], size: '1.8 MB', status: 'ready', format: 'excel' },
-        { id: 3, name: 'Overtime Analysis', type: 'overtime', generated: new Date(Date.now() - 172800000).toISOString().split('T')[0], size: '3.2 MB', status: 'ready', format: 'pdf' },
-        { id: 4, name: 'Department Performance', type: 'performance', generated: new Date(Date.now() - 259200000).toISOString().split('T')[0], size: '4.1 MB', status: 'ready', format: 'pdf' },
+        { id: 1, name: 'Monthly Attendance Report', type: 'attendance', generated: '2024-01-20', size: '2.4 MB', status: 'ready', format: 'pdf' },
+        { id: 2, name: 'Weekly Shift Coverage', type: 'schedule', generated: '2024-01-19', size: '1.8 MB', status: 'ready', format: 'excel' },
+        { id: 3, name: 'Overtime Analysis', type: 'overtime', generated: '2024-01-18', size: '3.2 MB', status: 'ready', format: 'pdf' },
+        { id: 4, name: 'Department Performance', type: 'performance', generated: '2024-01-17', size: '4.1 MB', status: 'ready', format: 'pdf' },
+        { id: 5, name: 'Leave Report Q4', type: 'leave', generated: '2024-01-16', size: '1.5 MB', status: 'ready', format: 'pdf' },
+        { id: 6, name: 'Productivity Report', type: 'productivity', generated: '2024-01-15', size: '2.8 MB', status: 'ready', format: 'excel' },
       ];
       setReports(mockReports);
     } catch (error) {
@@ -74,7 +76,6 @@ const DivisionReports = () => {
       // Call API to generate report
       const reportData = await divisionManagerService.generateReport(reportType, startDate, endDate);
       
-      // Add to reports list
       const newReport = {
         id: Date.now(),
         name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report - ${new Date().toLocaleDateString()}`,
@@ -97,7 +98,7 @@ const DivisionReports = () => {
     }
   };
 
-  const downloadReport = async (reportId, format = 'pdf') => {
+  const downloadReport = async (reportId) => {
     try {
       const report = reports.find(r => r.id === reportId);
       if (!report) {
@@ -105,13 +106,7 @@ const DivisionReports = () => {
         return;
       }
 
-      // Simulate download
-      alert(`Downloading ${report.name} as ${format.toUpperCase()}...`);
-      
-      // In a real app, this would download the actual file
-      console.log('Downloading report:', report);
-      
-      // Mock download delay
+      alert(`Downloading ${report.name}...`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('✅ Report downloaded successfully!');
       
@@ -129,22 +124,18 @@ const DivisionReports = () => {
     }
     
     alert(`Printing ${report.name}...`);
-    // In a real app, this would open print dialog
     window.print();
   };
 
-  const getDepartmentStats = () => {
-    // Mock department statistics
-    return departments.map(dept => ({
-      ...dept,
-      attendance: 90 + Math.random() * 10,
-      productivity: 85 + Math.random() * 15,
-      overtime: Math.random() * 20,
-      efficiency: 75 + Math.random() * 20,
-    }));
-  };
-
-  const departmentStats = getDepartmentStats();
+  const filteredReports = reports.filter(report => {
+    if (searchTerm && !report.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    if (reportType !== 'all' && report.type !== reportType) {
+      return false;
+    }
+    return true;
+  });
 
   if (loading) {
     return (
@@ -164,8 +155,8 @@ const DivisionReports = () => {
         </div>
         <div className="flex items-center space-x-3">
           <button 
-            className="btn-secondary flex items-center space-x-2"
             onClick={() => window.print()}
+            className="btn-secondary flex items-center space-x-2"
           >
             <Printer className="w-4 h-4" />
             <span>Print All</span>
@@ -190,9 +181,9 @@ const DivisionReports = () => {
         </div>
       </div>
 
-      {/* Report Type Filter */}
+      {/* Report Configuration */}
       <div className="card p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
             <select
@@ -200,6 +191,7 @@ const DivisionReports = () => {
               onChange={(e) => setReportType(e.target.value)}
               className="input-field"
             >
+              <option value="all">All Reports</option>
               <option value="attendance">Attendance Reports</option>
               <option value="schedule">Schedule Reports</option>
               <option value="performance">Performance Reports</option>
@@ -208,6 +200,7 @@ const DivisionReports = () => {
               <option value="productivity">Productivity Reports</option>
             </select>
           </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
             <select
@@ -219,9 +212,9 @@ const DivisionReports = () => {
               <option value="month">Last Month</option>
               <option value="quarter">Last Quarter</option>
               <option value="year">Last Year</option>
-              <option value="custom">Custom Range</option>
             </select>
           </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
             <select 
@@ -235,146 +228,139 @@ const DivisionReports = () => {
               ))}
             </select>
           </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search Reports</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search reports..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field pl-10"
+              />
+            </div>
+          </div>
         </div>
         
         {/* Quick Report Buttons */}
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="mt-4 grid grid-cols-3 md:grid-cols-6 gap-2">
           <button 
             onClick={() => setReportType('attendance')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'attendance' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span className="text-sm">Attendance</span>
+            <Users className="w-4 h-4 mb-1" />
+            <span className="text-xs">Attendance</span>
           </button>
           <button 
             onClick={() => setReportType('schedule')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'schedule' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Calendar className="w-4 h-4" />
-            <span className="text-sm">Schedule</span>
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs">Schedule</span>
           </button>
           <button 
             onClick={() => setReportType('performance')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'performance' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
-            <span className="text-sm">Performance</span>
+            <BarChart3 className="w-4 h-4 mb-1" />
+            <span className="text-xs">Performance</span>
           </button>
           <button 
             onClick={() => setReportType('overtime')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'overtime' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            <span className="text-sm">Overtime</span>
+            <Clock className="w-4 h-4 mb-1" />
+            <span className="text-xs">Overtime</span>
           </button>
           <button 
             onClick={() => setReportType('leave')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'leave' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Calendar className="w-4 h-4" />
-            <span className="text-sm">Leave</span>
+            <Calendar className="w-4 h-4 mb-1" />
+            <span className="text-xs">Leave</span>
           </button>
           <button 
             onClick={() => setReportType('productivity')}
-            className={`flex items-center justify-center space-x-2 p-2 rounded-lg ${
+            className={`flex flex-col items-center p-2 rounded-lg ${
               reportType === 'productivity' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-sm">Productivity</span>
+            <BarChart3 className="w-4 h-4 mb-1" />
+            <span className="text-xs">Productivity</span>
           </button>
         </div>
       </div>
 
-      {/* Department Performance */}
+      {/* Generated Reports */}
       <div className="card p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="font-semibold text-gray-800">Department Performance Summary</h4>
-          <button 
-            onClick={() => setReportType('performance')}
-            className="text-sm text-blue-600 hover:text-blue-800"
-          >
-            View Detailed Report →
-          </button>
+        <div className="flex justify-between items-center mb-6">
+          <h4 className="font-semibold text-gray-800">Generated Reports</h4>
+          <span className="text-sm text-gray-600">{filteredReports.length} reports</span>
         </div>
+        
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Attendance %</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Productivity</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Overtime Hours</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efficiency</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trend</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Report Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generated</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Format</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {departmentStats.map((dept, idx) => (
-                <tr key={idx} className="hover:bg-gray-50">
+              {filteredReports.map(report => (
+                <tr key={report.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{dept.name}</div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {dept.manager?.name || 'Not assigned'}
+                    <div className="text-sm font-medium text-gray-900">{report.name}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full bg-green-500" 
-                          style={{ width: `${dept.attendance}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{dept.attendance.toFixed(1)}%</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-800 capitalize">
+                      {report.type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{report.generated}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{report.size}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      report.status === 'ready' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {report.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 uppercase">{report.format}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => downloadReport(report.id)}
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        Download
+                      </button>
+                      <button
+                        onClick={() => printReport(report.id)}
+                        className="text-gray-600 hover:text-gray-800 text-sm"
+                      >
+                        Print
+                      </button>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full bg-blue-500" 
-                          style={{ width: `${dept.productivity}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{dept.productivity.toFixed(1)}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{dept.overtime.toFixed(1)}h</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full bg-purple-500" 
-                          style={{ width: `${dept.efficiency}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{dept.efficiency.toFixed(1)}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {dept.trend >= 0 ? (
-                      <div className="flex items-center text-green-600">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span>+{dept.trend?.toFixed(1) || '5.2'}%</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center text-red-600">
-                        <TrendingDown className="w-4 h-4 mr-1" />
-                        <span>{dept.trend?.toFixed(1) || '-2.1'}%</span>
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -383,123 +369,52 @@ const DivisionReports = () => {
         </div>
       </div>
 
-      {/* Generated Reports */}
+      {/* Quick Generation */}
       <div className="card p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="font-semibold text-gray-800">Generated Reports</h4>
-          <span className="text-sm text-gray-600">{reports.length} reports</span>
-        </div>
-        
-        <div className="space-y-4">
-          {reports.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No reports generated yet</p>
-              <button 
-                onClick={generateReport}
-                className="mt-3 btn-primary"
-              >
-                Generate Your First Report
-              </button>
+        <h4 className="font-semibold text-gray-800 mb-4">Quick Report Generation</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <button 
+            onClick={async () => {
+              setReportType('attendance');
+              await generateReport();
+            }}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <Users className="w-5 h-5 text-blue-600" />
+            <div>
+              <span className="font-medium text-gray-800">Attendance Report</span>
+              <p className="text-sm text-gray-600">Generate now</p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reports.map(report => (
-                <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h5 className="font-medium text-gray-800">{report.name}</h5>
-                      <p className="text-xs text-gray-500">Generated: {report.generated}</p>
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      report.status === 'ready' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {report.status}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4" />
-                      <span>{report.type}</span>
-                    </div>
-                    <span>{report.size}</span>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => downloadReport(report.id, report.format)}
-                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download</span>
-                    </button>
-                    <button
-                      onClick={() => printReport(report.id)}
-                      className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100"
-                    >
-                      <Printer className="w-4 h-4" />
-                      <span>Print</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+          </button>
+          
+          <button 
+            onClick={async () => {
+              setReportType('schedule');
+              await generateReport();
+            }}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <Calendar className="w-5 h-5 text-green-600" />
+            <div>
+              <span className="font-medium text-gray-800">Weekly Schedule</span>
+              <p className="text-sm text-gray-600">Generate now</p>
             </div>
-          )}
+          </button>
+          
+          <button 
+            onClick={async () => {
+              setReportType('overtime');
+              await generateReport();
+            }}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <Clock className="w-5 h-5 text-orange-600" />
+            <div>
+              <span className="font-medium text-gray-800">Overtime Report</span>
+              <p className="text-sm text-gray-600">Generate now</p>
+            </div>
+          </button>
         </div>
-      </div>
-
-      {/* Report Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button 
-          onClick={async () => {
-            setReportType('attendance');
-            await generateReport();
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <Users className="w-8 h-8 text-blue-600 mb-2" />
-          <span className="font-medium text-gray-800">Quick Attendance Report</span>
-          <span className="text-sm text-gray-600">Generate now</span>
-        </button>
-        
-        <button 
-          onClick={async () => {
-            setReportType('schedule');
-            await generateReport();
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <Calendar className="w-8 h-8 text-green-600 mb-2" />
-          <span className="font-medium text-gray-800">Weekly Schedule Report</span>
-          <span className="text-sm text-gray-600">Generate now</span>
-        </button>
-        
-        <button 
-          onClick={async () => {
-            setReportType('overtime');
-            await generateReport();
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <Clock className="w-8 h-8 text-orange-600 mb-2" />
-          <span className="font-medium text-gray-800">Overtime Analysis</span>
-          <span className="text-sm text-gray-600">Generate now</span>
-        </button>
-        
-        <button 
-          onClick={async () => {
-            setReportType('performance');
-            await generateReport();
-          }}
-          className="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-        >
-          <BarChart3 className="w-8 h-8 text-purple-600 mb-2" />
-          <span className="font-medium text-gray-800">Performance Summary</span>
-          <span className="text-sm text-gray-600">Generate now</span>
-        </button>
       </div>
     </div>
   );
