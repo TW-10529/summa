@@ -1,4 +1,4 @@
-# schemas.py - UPDATED WITH SETTINGS SCHEMAS
+# schemas.py - UPDATED WITH NOTIFICATION SCHEMAS
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -57,12 +57,6 @@ class Token(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
-class TokenData(BaseModel):
-    user_id: Optional[int] = None
-    username: Optional[str] = None
-    
-    model_config = ConfigDict(from_attributes=True)
-
 # Division Schemas
 class DivisionBase(BaseModel):
     name: str
@@ -101,7 +95,29 @@ class ManagerAssignment(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
-# NEW: Settings Schemas
+# Notification Schemas
+class NotificationBase(BaseModel):
+    title: str
+    message: str
+    type: str = "info"
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class NotificationCreate(NotificationBase):
+    target: str = "all"  # all, division_managers, department_managers, employees, specific
+    target_ids: Optional[List[int]] = None
+
+class NotificationResponse(NotificationBase):
+    id: int
+    user_id: int
+    read: bool
+    read_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Settings Schemas
 class SettingsBase(BaseModel):
     key: str
     value: Optional[Any] = None
@@ -123,7 +139,7 @@ class SettingsResponse(SettingsBase):
     updated_at: Optional[datetime] = None
     updated_by: Optional[int] = None
 
-# NEW: Audit Log Schemas
+# Audit Log Schemas
 class AuditLogBase(BaseModel):
     action: str
     resource: str
@@ -140,7 +156,7 @@ class AuditLogResponse(AuditLogBase):
     created_at: datetime
     user: Optional[UserResponse] = None
 
-# NEW: Dashboard Stats Schema
+# Dashboard Stats Schema
 class DashboardStats(BaseModel):
     total_divisions: int
     total_departments: int
@@ -151,7 +167,7 @@ class DashboardStats(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
-# NEW: System Backup Schema
+# System Backup Schema
 class BackupRequest(BaseModel):
     include_data: bool = True
     include_logs: bool = False

@@ -1207,7 +1207,7 @@ const AdminDashboard = ({ activeTab, setActiveTab }) => {
     </div>
   );
 
-  const renderContent = () => {
+const renderContent = () => {
     switch (activeTab) {
       case 'employees':
         return <EmployeeDatabase />;
@@ -1235,6 +1235,10 @@ const AdminDashboard = ({ activeTab, setActiveTab }) => {
               {activeTab === 'divisions' ? 'Divisions & Departments' : 
                activeTab === 'schedule-control' ? 'Schedule Control' :
                activeTab === 'settings' ? 'Admin Settings' :
+               activeTab === 'dashboard' ? 'Dashboard' :
+               activeTab === 'employees' ? 'Employee Database' :
+               activeTab === 'attendance' ? 'Attendance Management' :
+               activeTab === 'notifications' ? 'Notifications Center' :
                activeTab.replace('-', ' ')}
             </h2>
             <p className="text-gray-600 mt-1">
@@ -1242,13 +1246,28 @@ const AdminDashboard = ({ activeTab, setActiveTab }) => {
                 ? 'Overview of all factory divisions and system status'
                 : activeTab === 'settings'
                 ? 'Configure system settings and preferences'
+                : activeTab === 'employees'
+                ? 'Manage all employees across divisions'
+                : activeTab === 'divisions'
+                ? 'Manage factory divisions and departments'
+                : activeTab === 'attendance'
+                ? 'Track and manage employee attendance'
+                : activeTab === 'schedule-control'
+                ? 'Manage work schedules and shifts'
+                : activeTab === 'notifications'
+                ? 'Send and manage system notifications'
                 : `Manage ${activeTab.replace('-', ' ')}`}
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {activeTab !== 'dashboard' && (
               <button
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => {
+                  if (setActiveTab) {
+                    setActiveTab('dashboard');
+                  }
+                  navigate('/admin');
+                }}
                 className="btn-secondary flex items-center space-x-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg"
               >
                 <ArrowLeft className="w-4 h-4" />

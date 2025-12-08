@@ -19,7 +19,7 @@ const Sidebar = ({ role }) => {
     { id: 'employees', label: 'Employees', icon: Users, path: '/admin/employees' },
     { id: 'divisions', label: 'Divisions', icon: Building2, path: '/admin/divisions' },
     { id: 'attendance', label: 'Attendance', icon: BarChart3, path: '/admin/attendance' },
-    { id: 'schedule-control', label: 'Schedule Control', icon: Calendar, path: '/admin/schedule' },
+    { id: 'schedule-control', label: 'Schedule Control', icon: Calendar, path: '/admin/schedule-control' }, // CHANGED from '/admin/schedule'
     { id: 'notifications', label: 'Notifications', icon: Bell, path: '/admin/notifications' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
   ];

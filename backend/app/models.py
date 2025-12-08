@@ -1,4 +1,4 @@
-# app/models.py - UPDATED WITH SETTINGS
+# app/models.py - COMPLETE VERSION WITH NOTIFICATION MODEL
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Float, Enum, Text, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -35,6 +35,9 @@ class User(Base):
     
     # Backref for managed department (only for department managers)
     managed_department = relationship("Department", back_populates="manager", foreign_keys="Department.manager_id", uselist=False)
+    
+    # Notifications relationship
+    notifications = relationship("Notification", back_populates="user", foreign_keys="Notification.user_id", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.email}>"
@@ -74,7 +77,6 @@ class Department(Base):
     def __repr__(self):
         return f"<Department {self.name}>"
 
-# Simple models for Phase 1 & 2
 class Shift(Base):
     __tablename__ = "shifts"
     
@@ -85,7 +87,27 @@ class Shift(Base):
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# NEW: Settings Model
+# Notification Model
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String, default="info")  # info, warning, alert, success
+    read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id], back_populates="notifications")
+    sender = relationship("User", foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f"<Notification {self.title} for user {self.user_id}>"
+
 class SystemSettings(Base):
     __tablename__ = "system_settings"
     
@@ -100,7 +122,6 @@ class SystemSettings(Base):
     def __repr__(self):
         return f"<SystemSettings {self.key}>"
 
-# NEW: Audit Log Model
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     

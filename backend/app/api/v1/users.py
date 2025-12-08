@@ -1,4 +1,4 @@
-# app/api/v1/users.py - UPDATED
+# app/api/v1/users.py - COMPLETE FIXED VERSION
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -69,6 +69,48 @@ def read_users(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching users: {str(e)}"
+        )
+
+@router.get("/{user_id}", response_model=schemas.UserResponse)
+def read_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check permissions
+        if current_user.role == models.Role.ADMIN:
+            pass  # Admin can see anyone
+        elif current_user.role == models.Role.DIVISION_MANAGER:
+            if user.division_id != current_user.division_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not enough permissions"
+                )
+        elif current_user.role == models.Role.DEPARTMENT_MANAGER:
+            if user.department_id != current_user.department_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not enough permissions"
+                )
+        elif current_user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Can only view your own profile"
+            )
+        
+        return user
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user: {str(e)}"
         )
 
 @router.post("/", response_model=schemas.UserResponse)
@@ -217,7 +259,6 @@ def update_user(
             detail=f"Error updating user: {str(e)}"
         )
 
-# app/api/v1/users.py - FIXED delete_user function
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,
@@ -231,15 +272,7 @@ def delete_user(
             detail="Not enough permissions. Only admin can delete users."
         )
     
-    # Cannot delete yourself
-    if user_id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete yourself"
-        )
-    
     try:
-        # Find user
         db_user = db.query(models.User).filter(models.User.id == user_id).first()
         if not db_user:
             raise HTTPException(
@@ -249,7 +282,7 @@ def delete_user(
         
         # Check if user is a department manager
         if db_user.role == models.Role.DEPARTMENT_MANAGER:
-            # Remove manager assignment from department
+            # Remove manager from department
             department = db.query(models.Department).filter(
                 models.Department.manager_id == user_id
             ).first()
@@ -258,16 +291,14 @@ def delete_user(
         
         # Check if user is a division manager
         if db_user.role == models.Role.DIVISION_MANAGER:
-            # There's no direct reference, so just delete
+            # Note: Division manager assignment is handled in divisions endpoint
             pass
         
-        # Delete the user
+        # Delete user
         db.delete(db_user)
         db.commit()
         
-        return {"message": "User deleted successfully", "user_id": user_id}
-    except HTTPException:
-        raise
+        return {"message": "User deleted successfully"}
     except Exception as e:
         db.rollback()
         raise HTTPException(

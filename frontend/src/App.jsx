@@ -9,7 +9,7 @@ import DivisionDashboard from './components/division/DivisionDashboard';
 import ManagerDashboard from './components/manager/ManagerDashboard';
 import EmployeeDashboard from './components/employee/EmployeeDashboard';
 import Login from './components/auth/Login';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useSearchParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Import your constants
 import { ROLES } from './utils/constants';
@@ -55,47 +55,57 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   return children;
 };
 
-// Component to extract tab from URL
-const TabWrapper = ({ children }) => {
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  
-  // Get active tab from URL query parameter or pathname
-  const getActiveTab = () => {
-    // Check for tab query parameter
-    const tabFromQuery = searchParams.get('tab');
-    if (tabFromQuery) return tabFromQuery;
-    
-    // Extract from pathname
-    const path = location.pathname;
-    if (path.includes('/attendance')) return 'attendance';
-    if (path.includes('/schedule')) return 'schedule';
-    if (path.includes('/departments')) return 'departments';
-    if (path.includes('/approvals')) return 'approvals';
-    if (path.includes('/reports')) return 'reports';
-    if (path.includes('/notifications')) return 'notifications';
-    
-    return 'dashboard';
-  };
-
-  const activeTab = getActiveTab();
-  const [currentTab, setCurrentTab] = useState(activeTab);
-
-  // Update tab when URL changes
-  useEffect(() => {
-    setCurrentTab(getActiveTab());
-  }, [location, searchParams]);
-
-  // Clone children and pass activeTab prop
-  return React.cloneElement(children, {
-    activeTab: currentTab,
-    setActiveTab: setCurrentTab
-  });
-};
-
 // Main App component
 function AppContent() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Update activeTab when URL changes
+  useEffect(() => {
+    const path = location.pathname.toLowerCase();
+    
+    // Admin tabs
+    if (path.includes('/admin')) {
+      if (path.includes('/employees') || path.endsWith('/admin/employees')) setActiveTab('employees');
+      else if (path.includes('/divisions') || path.endsWith('/admin/divisions')) setActiveTab('divisions');
+      else if (path.includes('/notifications') || path.endsWith('/admin/notifications')) setActiveTab('notifications');
+      else if (path.includes('/attendance') || path.endsWith('/admin/attendance')) setActiveTab('attendance');
+      else if (path.includes('/schedule') || path.endsWith('/admin/schedule') || path.includes('/schedule-control') || path.endsWith('/admin/schedule-control')) setActiveTab('schedule-control');
+      else if (path.includes('/settings') || path.endsWith('/admin/settings')) setActiveTab('settings');
+      else setActiveTab('dashboard');
+    }
+    
+    // Division Manager tabs
+    else if (path.includes('/division')) {
+      if (path.includes('/attendance') || path.endsWith('/division/attendance')) setActiveTab('attendance');
+      else if (path.includes('/schedule') || path.endsWith('/division/schedule')) setActiveTab('schedule');
+      else if (path.includes('/departments') || path.endsWith('/division/departments')) setActiveTab('departments');
+      else if (path.includes('/approvals') || path.endsWith('/division/approvals')) setActiveTab('approvals');
+      else if (path.includes('/reports') || path.endsWith('/division/reports')) setActiveTab('reports');
+      else if (path.includes('/notifications') || path.endsWith('/division/notifications')) setActiveTab('notifications');
+      else setActiveTab('dashboard');
+    }
+    
+    // Department Manager tabs
+    else if (path.includes('/manager')) {
+      if (path.includes('/attendance') || path.endsWith('/manager/attendance')) setActiveTab('attendance');
+      else if (path.includes('/schedule') || path.endsWith('/manager/schedule')) setActiveTab('schedule');
+      else if (path.includes('/employees') || path.endsWith('/manager/employees')) setActiveTab('employees');
+      else if (path.includes('/notifications') || path.endsWith('/manager/notifications')) setActiveTab('notifications');
+      else setActiveTab('dashboard');
+    }
+    
+    // Employee tabs
+    else if (path.includes('/employee')) {
+      if (path.includes('/schedule') || path.endsWith('/employee/schedule')) setActiveTab('shifts');
+      else if (path.includes('/attendance') || path.endsWith('/employee/attendance')) setActiveTab('attendance');
+      else if (path.includes('/requests') || path.endsWith('/employee/requests')) setActiveTab('requests');
+      else if (path.includes('/profile') || path.endsWith('/employee/profile')) setActiveTab('profile');
+      else if (path.includes('/notifications') || path.endsWith('/employee/notifications')) setActiveTab('notifications');
+      else setActiveTab('dashboard');
+    }
+  }, [location]);
 
   // Show loading screen while checking auth
   if (loading) {
@@ -120,67 +130,39 @@ function AppContent() {
                 <Route path="/" element={<Navigate to="/admin" />} />
                 <Route 
                   path="/admin" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab={activeTab} setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/dashboard" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="dashboard" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/employees" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="employees" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/divisions" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="divisions" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/notifications" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="notifications" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/attendance" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="attendance" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/schedule" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="schedule-control" setActiveTab={setActiveTab} />}
+                />
+                <Route 
+                  path="/admin/schedule-control" 
+                  element={<AdminDashboard activeTab="schedule-control" setActiveTab={setActiveTab} />}
                 />
                 <Route 
                   path="/admin/settings" 
-                  element={
-                    <TabWrapper>
-                      <AdminDashboard />
-                    </TabWrapper>
-                  }
+                  element={<AdminDashboard activeTab="settings" setActiveTab={setActiveTab} />}
                 />
               </>
             )}
@@ -191,59 +173,31 @@ function AppContent() {
                 <Route path="/" element={<Navigate to="/division" />} />
                 <Route 
                   path="/division" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab={activeTab} />}
                 />
                 <Route 
                   path="/division/attendance" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="attendance" />}
                 />
                 <Route 
                   path="/division/schedule" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="schedule" />}
                 />
                 <Route 
                   path="/division/departments" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="departments" />}
                 />
                 <Route 
                   path="/division/approvals" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="approvals" />}
                 />
                 <Route 
                   path="/division/reports" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="reports" />}
                 />
                 <Route 
                   path="/division/notifications" 
-                  element={
-                    <TabWrapper>
-                      <DivisionDashboard />
-                    </TabWrapper>
-                  }
+                  element={<DivisionDashboard activeTab="notifications" />}
                 />
               </>
             )}
@@ -254,43 +208,27 @@ function AppContent() {
                 <Route path="/" element={<Navigate to="/manager" />} />
                 <Route 
                   path="/manager" 
-                  element={
-                    <TabWrapper>
-                      <ManagerDashboard />
-                    </TabWrapper>
-                  }
+                  element={<ManagerDashboard activeTab={activeTab} />}
                 />
                 <Route 
                   path="/manager/dashboard" 
-                  element={
-                    <TabWrapper>
-                      <ManagerDashboard />
-                    </TabWrapper>
-                  }
+                  element={<ManagerDashboard activeTab="dashboard" />}
                 />
                 <Route 
                   path="/manager/attendance" 
-                  element={
-                    <TabWrapper>
-                      <ManagerDashboard />
-                    </TabWrapper>
-                  }
+                  element={<ManagerDashboard activeTab="attendance" />}
                 />
                 <Route 
                   path="/manager/schedule" 
-                  element={
-                    <TabWrapper>
-                      <ManagerDashboard />
-                    </TabWrapper>
-                  }
+                  element={<ManagerDashboard activeTab="schedule" />}
                 />
                 <Route 
                   path="/manager/employees" 
-                  element={
-                    <TabWrapper>
-                      <ManagerDashboard />
-                    </TabWrapper>
-                  }
+                  element={<ManagerDashboard activeTab="employees" />}
+                />
+                <Route 
+                  path="/manager/notifications" 
+                  element={<ManagerDashboard activeTab="notifications" />}
                 />
               </>
             )}
@@ -301,43 +239,31 @@ function AppContent() {
                 <Route path="/" element={<Navigate to="/employee" />} />
                 <Route 
                   path="/employee" 
-                  element={
-                    <TabWrapper>
-                      <EmployeeDashboard />
-                    </TabWrapper>
-                  }
+                  element={<EmployeeDashboard activeTab={activeTab} />}
                 />
                 <Route 
                   path="/employee/dashboard" 
-                  element={
-                    <TabWrapper>
-                      <EmployeeDashboard />
-                    </TabWrapper>
-                  }
+                  element={<EmployeeDashboard activeTab="dashboard" />}
                 />
                 <Route 
                   path="/employee/schedule" 
-                  element={
-                    <TabWrapper>
-                      <EmployeeDashboard />
-                    </TabWrapper>
-                  }
+                  element={<EmployeeDashboard activeTab="shifts" />}
                 />
                 <Route 
                   path="/employee/attendance" 
-                  element={
-                    <TabWrapper>
-                      <EmployeeDashboard />
-                    </TabWrapper>
-                  }
+                  element={<EmployeeDashboard activeTab="attendance" />}
                 />
                 <Route 
                   path="/employee/requests" 
-                  element={
-                    <TabWrapper>
-                      <EmployeeDashboard />
-                    </TabWrapper>
-                  }
+                  element={<EmployeeDashboard activeTab="requests" />}
+                />
+                <Route 
+                  path="/employee/notifications" 
+                  element={<EmployeeDashboard activeTab="notifications" />}
+                />
+                <Route 
+                  path="/employee/profile" 
+                  element={<EmployeeDashboard activeTab="profile" />}
                 />
               </>
             )}
