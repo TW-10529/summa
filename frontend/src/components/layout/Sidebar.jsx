@@ -1,152 +1,123 @@
-
+// components/layout/Sidebar.jsx
 import React from 'react';
 import { 
-  LayoutDashboard, Users, Building2, Calendar, Clock, 
-  Bell, Shield, CheckSquare, User, 
-  Settings, Layers, Briefcase, FolderTree, FileCheck
+  LayoutDashboard, Users, Building2, Calendar, 
+  Bell, CheckCircle, FileText, Settings, LogOut,
+  BarChart3, Clock, Layers
 } from 'lucide-react';
-import { ROLES } from '../../utils/constants';
 import { useAuth } from '../../contexts/AuthContext';
+import { ROLES } from '../../utils/constants';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const Sidebar = ({ role, activeTab, setActiveTab }) => {
-  const { getUserScope } = useAuth();
-  const scope = getUserScope();
+const Sidebar = ({ role }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logout } = useAuth();
 
-  // Navigation items based on role
-  const getNavigationItems = () => {
-    const baseItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ];
+  const adminMenu = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
+    { id: 'employees', label: 'Employees', icon: Users, path: '/admin/employees' },
+    { id: 'divisions', label: 'Divisions', icon: Building2, path: '/admin/divisions' },
+    { id: 'attendance', label: 'Attendance', icon: BarChart3, path: '/admin/attendance' },
+    { id: 'schedule-control', label: 'Schedule Control', icon: Calendar, path: '/admin/schedule' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/admin/notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/admin/settings' },
+  ];
 
-    if (role === ROLES.ADMIN) {
-      return [
-        ...baseItems,
-        { id: 'employees', label: 'Employee Database', icon: Users },
-        { id: 'divisions', label: 'Divisions', icon: Layers },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'attendance', label: 'Attendance App', icon: CheckSquare },
-        { id: 'schedule-control', label: 'Schedule Control', icon: Calendar },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
-    } else if (role === ROLES.DIVISION_MANAGER) {
-      return [
-        ...baseItems,
-        { id: 'departments', label: 'Departments', icon: FolderTree },
-        { id: 'attendance', label: 'Division Attendance', icon: CheckSquare },
-        { id: 'schedule', label: 'Division Schedule', icon: Calendar },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'approvals', label: 'Approvals', icon: CheckSquare },
-      ];
-    } else if (role === ROLES.DEPARTMENT_MANAGER) {
-      return [
-        ...baseItems,
-        { id: 'attendance-dash', label: 'Attendance Dashboard', icon: CheckSquare },
-        { id: 'schedule', label: 'Schedule', icon: Calendar },
-        { id: 'daily-schedule', label: 'Daily Schedule', icon: Clock },
-        { id: 'notifications-panel', label: 'Notifications', icon: Bell },
-        { id: 'approvals', label: 'Approvals', icon: CheckSquare },
-      ];
-    } else {
-      // Employee role
-      return [
-        ...baseItems,
-        { id: 'shifts', label: 'My Shifts', icon: Clock },
-        { id: 'profile', label: 'Profile', icon: User },
-        { id: 'attendance', label: 'Attendance', icon: CheckSquare },
-        { id: 'requests', label: 'Requests', icon: FileCheck },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-      ];
-    }
-  };
+  const divisionManagerMenu = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/division' },
+    { id: 'attendance', label: 'Division Attendance', icon: BarChart3, path: '/division/attendance' },
+    { id: 'schedule', label: 'Division Schedule', icon: Calendar, path: '/division/schedule' },
+    { id: 'departments', label: 'Departments', icon: Layers, path: '/division/departments' },
+    { id: 'approvals', label: 'Approvals', icon: CheckCircle, path: '/division/approvals' },
+    { id: 'reports', label: 'Reports', icon: FileText, path: '/division/reports' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/division/notifications' },
+  ];
 
-  const navItems = getNavigationItems();
+  const departmentManagerMenu = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/manager' },
+    { id: 'attendance', label: 'Attendance', icon: BarChart3, path: '/manager/attendance' },
+    { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/manager/schedule' },
+    { id: 'employees', label: 'Employees', icon: Users, path: '/manager/employees' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, path: '/manager/notifications' },
+  ];
 
-  const getRoleBadge = () => {
+  const employeeMenu = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/employee' },
+    { id: 'schedule', label: 'My Schedule', icon: Calendar, path: '/employee/schedule' },
+    { id: 'attendance', label: 'My Attendance', icon: BarChart3, path: '/employee/attendance' },
+    { id: 'requests', label: 'My Requests', icon: CheckCircle, path: '/employee/requests' },
+  ];
+
+  const getMenuItems = () => {
     switch (role) {
       case ROLES.ADMIN:
-        return { text: 'Admin', color: 'purple', description: 'Full System Access' };
+        return adminMenu;
       case ROLES.DIVISION_MANAGER:
-        return { 
-          text: 'Division Manager', 
-          color: 'blue', 
-          description: `${scope?.division?.name || 'Division'} Access` 
-        };
+        return divisionManagerMenu;
       case ROLES.DEPARTMENT_MANAGER:
-        return { 
-          text: 'Department Manager', 
-          color: 'green', 
-          description: `${scope?.department?.name || 'Department'} Management` 
-        };
+        return departmentManagerMenu;
+      case ROLES.EMPLOYEE:
+        return employeeMenu;
       default:
-        return { text: 'Employee', color: 'gray', description: 'Employee Access' };
+        return [];
     }
   };
 
-  const roleBadge = getRoleBadge();
+  const menuItems = getMenuItems();
+  
+  const isActive = (path) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-20">
-      {/* Logo */}
+    <div className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r border-gray-200 flex flex-col z-40">
+      {/* Sidebar Header */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">FactoryShift</h1>
-            <p className="text-xs text-gray-500">Division Management</p>
-          </div>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-800 capitalize">
+          {role.replace('_', ' ')} Panel
+        </h3>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  activeTab === item.id
-                    ? 'bg-blue-50 text-blue-600 border border-blue-100'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${activeTab === item.id ? 'text-blue-600' : ''}`} />
-                <span className="font-medium">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Role & Scope Badge */}
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center space-x-2 mb-2">
-            <Shield className={`w-4 h-4 text-${roleBadge.color}-600`} />
-            <span className="text-sm font-medium text-gray-700">{roleBadge.text}</span>
-          </div>
-          <p className="text-xs text-gray-500">{roleBadge.description}</p>
+      {/* Navigation Menu */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.path);
           
-          {/* Division/Department Info */}
-          {scope?.division && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <div className="flex items-center space-x-2">
-                <Briefcase className="w-3 h-3 text-gray-500" />
-                <span className="text-xs text-gray-600">{scope.division.name}</span>
-              </div>
-              {scope.department && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <FolderTree className="w-3 h-3 text-gray-500" />
-                  <span className="text-xs text-gray-600">{scope.department.name}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                active
+                  ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${active ? 'text-blue-600' : 'text-gray-500'}`} />
+              <span className="font-medium">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
-    </aside>
+
+      {/* Logout Button */}
+      <div className="p-4 border-t border-gray-200">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium">Logout</span>
+        </button>
+      </div>
+    </div>
   );
 };
 

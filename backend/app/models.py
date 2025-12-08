@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Float, Enum, Text, ForeignKeyConstraint
+# app/models.py - UPDATED WITH SETTINGS
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Float, Enum, Text, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -83,3 +84,37 @@ class Shift(Base):
     end_time = Column(String, nullable=False)    # "16:00"
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# NEW: Settings Model
+class SystemSettings(Base):
+    __tablename__ = "system_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    value = Column(JSON, nullable=True)
+    category = Column(String, index=True, nullable=False)  # general, security, notifications, users, system
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    def __repr__(self):
+        return f"<SystemSettings {self.key}>"
+
+# NEW: Audit Log Model
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)  # create, update, delete, login, etc.
+    resource = Column(String, nullable=False)  # user, division, department, settings
+    resource_id = Column(Integer, nullable=True)
+    details = Column(JSON, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User")
+    
+    def __repr__(self):
+        return f"<AuditLog {self.action} {self.resource}>"

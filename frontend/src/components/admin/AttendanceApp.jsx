@@ -1,17 +1,70 @@
-import React, { useState } from 'react';
-import { Search, Filter, Download, Printer, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Download, Printer, Clock, CheckCircle, XCircle, AlertCircle, Loader2, Calendar } from 'lucide-react';
+import { userService } from '../../services/api';
 
 const AttendanceApp = () => {
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('today');
-  
-  const attendanceRecords = [
-    { id: 1, name: 'John Doe', employeeId: 'EMP001', date: '2024-01-15', checkIn: '08:02', checkOut: '16:05', shift: 'Morning', status: 'Present', overtime: '0.5h' },
-    { id: 2, name: 'Jane Smith', employeeId: 'EMP002', date: '2024-01-15', checkIn: '16:15', checkOut: '00:10', shift: 'Afternoon', status: 'Late', overtime: '0h' },
-    { id: 3, name: 'Robert Chen', employeeId: 'EMP003', date: '2024-01-15', checkIn: '00:05', checkOut: '08:00', shift: 'Night', status: 'Present', overtime: '0h' },
-    { id: 4, name: 'Sarah Johnson', employeeId: 'EMP004', date: '2024-01-15', checkIn: '08:00', checkOut: '16:00', shift: 'Morning', status: 'Present', overtime: '0h' },
-    { id: 5, name: 'Mike Wilson', employeeId: 'EMP005', date: '2024-01-15', checkIn: '—', checkOut: '—', shift: 'Afternoon', status: 'Absent', overtime: '0h' },
-    { id: 6, name: 'Lisa Brown', employeeId: 'EMP006', date: '2024-01-15', checkIn: '08:30', checkOut: '16:45', shift: 'Morning', status: 'Late', overtime: '0.75h' },
-  ];
+  const [search, setSearch] = useState('');
+  const [filterDept, setFilterDept] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [stats, setStats] = useState({
+    present: 0,
+    absent: 0,
+    late: 0,
+    overtime: 0
+  });
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, [dateRange]);
+
+  const fetchAttendanceData = async () => {
+    try {
+      setLoading(true);
+      const usersData = await userService.getUsers();
+      setUsers(usersData);
+      
+      // Generate mock attendance data based on users
+      const mockAttendance = usersData.map(user => {
+        const status = Math.random() > 0.1 ? 'Present' : 'Absent';
+        const checkIn = status === 'Present' ? '08:0' + Math.floor(Math.random() * 9) : '—';
+        const checkOut = status === 'Present' ? '16:0' + Math.floor(Math.random() * 9) : '—';
+        const late = checkIn > '08:05' ? 'Late' : 'Present';
+        
+        return {
+          id: user.id,
+          name: user.full_name,
+          employeeId: user.employee_id || `EMP${user.id.toString().padStart(3, '0')}`,
+          date: new Date().toISOString().split('T')[0],
+          checkIn,
+          checkOut,
+          shift: ['Morning', 'Afternoon', 'Night'][Math.floor(Math.random() * 3)],
+          status: checkIn > '08:05' ? 'Late' : status,
+          overtime: Math.random() > 0.7 ? `${Math.floor(Math.random() * 2)}.${Math.floor(Math.random() * 6)}h` : '0h'
+        };
+      });
+      
+      setAttendanceRecords(mockAttendance);
+      
+      // Calculate stats
+      const present = mockAttendance.filter(r => r.status === 'Present').length;
+      const absent = mockAttendance.filter(r => r.status === 'Absent').length;
+      const late = mockAttendance.filter(r => r.status === 'Late').length;
+      const overtime = mockAttendance.reduce((sum, r) => {
+        const hours = parseFloat(r.overtime);
+        return sum + (isNaN(hours) ? 0 : hours);
+      }, 0);
+      
+      setStats({ present, absent, late, overtime });
+    } catch (error) {
+      console.error('Error fetching attendance data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -21,6 +74,49 @@ const AttendanceApp = () => {
       default: return <Clock className="w-4 h-4 text-gray-500" />;
     }
   };
+
+  const filteredRecords = attendanceRecords.filter(record => {
+    const matchesSearch = 
+      record.name.toLowerCase().includes(search.toLowerCase()) ||
+      record.employeeId.toLowerCase().includes(search.toLowerCase());
+    
+    // For now, using mock department filter
+    const matchesDept = filterDept === 'all' || true;
+    const matchesStatus = filterStatus === 'all' || record.status === filterStatus;
+    
+    return matchesSearch && matchesDept && matchesStatus;
+  });
+
+  const handleExport = () => {
+    const csv = [
+      ['Name', 'Employee ID', 'Date', 'Shift', 'Check-in', 'Check-out', 'Status', 'Overtime'],
+      ...filteredRecords.map(r => [r.name, r.employeeId, r.date, r.shift, r.checkIn, r.checkOut, r.status, r.overtime])
+    ].map(row => row.join(',')).join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Attendance Management</h3>
+            <p className="text-gray-600">Track and manage employee attendance</p>
+          </div>
+        </div>
+        <div className="card p-12 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <span className="ml-3 text-gray-600">Loading attendance data...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -40,7 +136,7 @@ const AttendanceApp = () => {
             <option value="week">This Week</option>
             <option value="month">This Month</option>
           </select>
-          <button className="btn-secondary flex items-center space-x-2">
+          <button onClick={handleExport} className="btn-secondary flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
@@ -60,7 +156,7 @@ const AttendanceApp = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Present Today</p>
-              <p className="text-xl font-bold text-gray-800">142</p>
+              <p className="text-xl font-bold text-gray-800">{stats.present}</p>
             </div>
           </div>
         </div>
@@ -71,7 +167,7 @@ const AttendanceApp = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Absent Today</p>
-              <p className="text-xl font-bold text-gray-800">8</p>
+              <p className="text-xl font-bold text-gray-800">{stats.absent}</p>
             </div>
           </div>
         </div>
@@ -82,7 +178,7 @@ const AttendanceApp = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Late Arrivals</p>
-              <p className="text-xl font-bold text-gray-800">12</p>
+              <p className="text-xl font-bold text-gray-800">{stats.late}</p>
             </div>
           </div>
         </div>
@@ -93,7 +189,7 @@ const AttendanceApp = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Overtime Hours</p>
-              <p className="text-xl font-bold text-gray-800">24.5h</p>
+              <p className="text-xl font-bold text-gray-800">{stats.overtime}h</p>
             </div>
           </div>
         </div>
@@ -108,24 +204,34 @@ const AttendanceApp = () => {
               <input
                 type="text"
                 placeholder="Search by name or employee ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="input-field pl-10"
               />
             </div>
           </div>
           <div>
-            <select className="input-field">
-              <option value="">All Departments</option>
+            <select 
+              value={filterDept} 
+              onChange={(e) => setFilterDept(e.target.value)}
+              className="input-field"
+            >
+              <option value="all">All Departments</option>
               <option value="production">Production</option>
               <option value="quality">Quality</option>
               <option value="maintenance">Maintenance</option>
             </select>
           </div>
           <div>
-            <select className="input-field">
-              <option value="">All Status</option>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
+            <select 
+              value={filterStatus} 
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="input-field"
+            >
+              <option value="all">All Status</option>
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Late">Late</option>
             </select>
           </div>
         </div>
@@ -147,7 +253,7 @@ const AttendanceApp = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {attendanceRecords.map((record) => (
+              {filteredRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
@@ -186,6 +292,12 @@ const AttendanceApp = () => {
               ))}
             </tbody>
           </table>
+          
+          {filteredRecords.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              No attendance records found for the selected filters.
+            </div>
+          )}
         </div>
       </div>
     </div>

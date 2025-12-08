@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:admin123@localhost:5432/factoryshift")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:Sanjayk1202@localhost:5432/factoryshift")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

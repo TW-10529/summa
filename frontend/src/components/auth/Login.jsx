@@ -1,12 +1,13 @@
+// components/auth/Login.jsx - FIXED VERSION
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Building2, User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, error: authError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
   
   const [formData, setFormData] = useState({
     username: '',
@@ -15,13 +16,31 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setLocalError('');
     setLoading(true);
 
-    const result = await login(formData.username, formData.password);
-    
-    if (!result.success) {
-      setError(result.error);
+    console.log('Submitting login form...');
+    console.log('Username:', formData.username);
+
+    try {
+      // Call the AuthContext login function
+      const result = await login(formData.username, formData.password);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed');
+      }
+      
+      console.log('Login successful! User:', result.user);
+      
+      // Force page reload to initialize app properly
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      setLocalError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
       setLoading(false);
     }
   };
@@ -34,15 +53,18 @@ const Login = () => {
   };
 
   const demoCredentials = [
-    { role: 'Admin', username: 'admin', password: '1234' },
-    { role: 'Division Manager', username: 'prod_manager', password: 'password123' },
-    { role: 'Department Manager', username: 'dept_manager', password: 'password123' },
-    { role: 'Employee', username: 'employee', password: 'password123' },
+    { role: 'Admin', username: 'admin', password: 'admin123' },
+    { role: 'Division Manager', username: 'division', password: 'division123' },
+    { role: 'Department Manager', username: 'dept', password: 'dept123' },
+    { role: 'Employee', username: 'employee', password: 'employee123' },
   ];
 
   const fillDemoCredentials = (username, password) => {
     setFormData({ username, password });
   };
+
+  // Combine auth error and local error
+  const error = authError || localError;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
@@ -70,7 +92,7 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username or Email
+                Username
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -79,10 +101,11 @@ const Login = () => {
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  placeholder="Enter your username or email"
+                  placeholder="Enter your username"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -102,6 +125,7 @@ const Login = () => {
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -119,7 +143,15 @@ const Login = () => {
               disabled={loading}
               className="w-full bg-blue-600 text-white font-semibold py-3.5 rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </span>
+              ) : 'Sign In'}
             </button>
 
             <div className="pt-4 border-t border-gray-200">

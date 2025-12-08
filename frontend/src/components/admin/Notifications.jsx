@@ -1,21 +1,39 @@
-import React, { useState } from 'react';
-import { Bell, Mail, AlertTriangle, CheckCircle, XCircle, Clock, Send, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Mail, AlertTriangle, CheckCircle, XCircle, Clock, Send, Trash2, Loader2 } from 'lucide-react';
+import { userService } from '../../services/api';
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'alert', title: 'Shift Change Required', message: 'Production line A needs additional staff for night shift', time: '10 min ago', read: false },
-    { id: 2, type: 'info', title: 'New Employee Onboarded', message: 'John Smith joined as Production Operator', time: '1 hour ago', read: true },
-    { id: 3, type: 'warning', title: 'Attendance Alert', message: '3 employees late for morning shift', time: '2 hours ago', read: false },
-    { id: 4, type: 'success', title: 'Schedule Approved', message: 'Weekly schedule approved by manager', time: '1 day ago', read: true },
-    { id: 5, type: 'alert', title: 'Equipment Maintenance', message: 'Machine #5 requires immediate maintenance', time: '2 days ago', read: true },
-  ]);
-
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newNotification, setNewNotification] = useState({
     type: 'info',
     title: '',
     message: '',
     target: 'all'
   });
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const usersData = await userService.getUsers();
+      setUsers(usersData);
+      
+      // Load notifications from localStorage (or API when implemented)
+      const saved = localStorage.getItem('factory_notifications');
+      if (saved) {
+        setNotifications(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -36,45 +54,83 @@ const Notifications = () => {
   };
 
   const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
+    const updated = notifications.map(n => 
       n.id === id ? { ...n, read: true } : n
-    ));
+    );
+    setNotifications(updated);
+    localStorage.setItem('factory_notifications', JSON.stringify(updated));
   };
 
   const deleteNotification = (id) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+    const updated = notifications.filter(n => n.id !== id);
+    setNotifications(updated);
+    localStorage.setItem('factory_notifications', JSON.stringify(updated));
   };
 
   const sendNotification = () => {
-    if (!newNotification.title || !newNotification.message) return;
+    if (!newNotification.title || !newNotification.message) {
+      alert('Please fill in title and message');
+      return;
+    }
     
     const newNotif = {
-      id: notifications.length + 1,
+      id: Date.now(),
       type: newNotification.type,
       title: newNotification.title,
       message: newNotification.message,
-      time: 'Just now',
+      target: newNotification.target,
+      time: new Date().toLocaleString(),
       read: false
     };
     
-    setNotifications([newNotif, ...notifications]);
+    const updated = [newNotif, ...notifications];
+    setNotifications(updated);
+    localStorage.setItem('factory_notifications', JSON.stringify(updated));
+    
+    // Reset form
     setNewNotification({
       type: 'info',
       title: '',
       message: '',
       target: 'all'
     });
+    
+    alert('Notification sent successfully!');
   };
+
+  const markAllAsRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    setNotifications(updated);
+    localStorage.setItem('factory_notifications', JSON.stringify(updated));
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">Notifications Center</h3>
+            <p className="text-gray-600">Manage system alerts and announcements</p>
+          </div>
+        </div>
+        <div className="card p-12 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <span className="ml-3 text-gray-600">Loading notifications...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">Notifications Center</h3>
           <p className="text-gray-600">Manage system alerts and announcements</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="btn-secondary">
+          <button onClick={markAllAsRead} className="btn-secondary">
             Mark All as Read
           </button>
           <button className="btn-primary flex items-center space-x-2">
@@ -113,30 +169,33 @@ const Notifications = () => {
                 className="input-field"
               >
                 <option value="all">All Employees</option>
-                <option value="production">Production Only</option>
-                <option value="quality">Quality Only</option>
-                <option value="managers">Managers Only</option>
+                <option value="admin">Admins Only</option>
+                <option value="division_manager">Division Managers</option>
+                <option value="employee">Employees Only</option>
+                <option value="specific">Specific User</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
             <input
               type="text"
               value={newNotification.title}
               onChange={(e) => setNewNotification({...newNotification, title: e.target.value})}
               placeholder="Enter notification title..."
               className="input-field"
+              required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
             <textarea
               value={newNotification.message}
               onChange={(e) => setNewNotification({...newNotification, message: e.target.value})}
               placeholder="Enter notification message..."
               rows="3"
               className="input-field"
+              required
             />
           </div>
           <button
@@ -153,48 +212,61 @@ const Notifications = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="font-semibold text-gray-800">Recent Notifications</h4>
-          <span className="text-sm text-gray-600">{notifications.filter(n => !n.read).length} unread</span>
+          <span className="text-sm text-gray-600">
+            {notifications.filter(n => !n.read).length} unread
+          </span>
         </div>
         
         <div className="space-y-3">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`card p-4 ${getNotificationColor(notification.type)} ${!notification.read ? 'border-l-4 border-l-blue-500' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  {getNotificationIcon(notification.type)}
-                  <div>
-                    <h5 className="font-medium text-gray-800">{notification.title}</h5>
-                    <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <span className="text-xs text-gray-500">{notification.time}</span>
-                      <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                        {notification.type.toUpperCase()}
-                      </span>
+          {notifications.length === 0 ? (
+            <div className="card p-8 text-center">
+              <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">No Notifications</h4>
+              <p className="text-gray-600">No notifications have been sent yet.</p>
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`card p-4 ${getNotificationColor(notification.type)} ${!notification.read ? 'border-l-4 border-l-blue-500' : ''}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3">
+                    {getNotificationIcon(notification.type)}
+                    <div>
+                      <h5 className="font-medium text-gray-800">{notification.title}</h5>
+                      <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                      <div className="flex items-center space-x-4 mt-2">
+                        <span className="text-xs text-gray-500">{notification.time}</span>
+                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                          {notification.type.toUpperCase()}
+                        </span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                          {notification.target}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {!notification.read && (
+                  <div className="flex items-center space-x-2">
+                    {!notification.read && (
+                      <button
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        Mark as read
+                      </button>
+                    )}
                     <button
-                      onClick={() => markAsRead(notification.id)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
+                      onClick={() => deleteNotification(notification.id)}
+                      className="p-1 hover:bg-red-50 rounded"
                     >
-                      Mark as read
+                      <Trash2 className="w-4 h-4 text-red-500" />
                     </button>
-                  )}
-                  <button
-                    onClick={() => deleteNotification(notification.id)}
-                    className="p-1 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

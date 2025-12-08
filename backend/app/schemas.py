@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+# schemas.py - UPDATED WITH SETTINGS SCHEMAS
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from enum import Enum
 
 class RoleEnum(str, Enum):
@@ -19,8 +20,7 @@ class UserBase(BaseModel):
     division_id: Optional[int] = None
     department_id: Optional[int] = None
     
-    class Config:
-        orm_mode = True  # For Pydantic v1
+    model_config = ConfigDict(from_attributes=True)
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
@@ -32,25 +32,21 @@ class UserUpdate(BaseModel):
     division_id: Optional[int] = None
     department_id: Optional[int] = None
     avatar_url: Optional[str] = None
+    is_active: Optional[bool] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
     username: str
     password: str
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserResponse(UserBase):
     id: int
     is_active: bool
     avatar_url: Optional[str] = None
     created_at: datetime
-    
-    class Config:
-        orm_mode = True
 
 # Token Schemas
 class Token(BaseModel):
@@ -59,15 +55,13 @@ class Token(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TokenData(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Division Schemas
 class DivisionBase(BaseModel):
@@ -75,8 +69,7 @@ class DivisionBase(BaseModel):
     description: Optional[str] = None
     color: str = "blue"
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DivisionCreate(DivisionBase):
     pass
@@ -84,9 +77,6 @@ class DivisionCreate(DivisionBase):
 class DivisionResponse(DivisionBase):
     id: int
     created_at: datetime
-    
-    class Config:
-        orm_mode = True
 
 # Department Schemas
 class DepartmentBase(BaseModel):
@@ -96,8 +86,7 @@ class DepartmentBase(BaseModel):
     division_id: int
     manager_id: Optional[int] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DepartmentCreate(DepartmentBase):
     pass
@@ -105,13 +94,76 @@ class DepartmentCreate(DepartmentBase):
 class DepartmentResponse(DepartmentBase):
     id: int
     created_at: datetime
-    
-    class Config:
-        orm_mode = True
 
-# Manager Assignment Schema - ADD THIS
+# Manager Assignment Schema
 class ManagerAssignment(BaseModel):
     manager_id: Optional[int] = None
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+# NEW: Settings Schemas
+class SettingsBase(BaseModel):
+    key: str
+    value: Optional[Any] = None
+    category: str
+    description: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class SettingsCreate(SettingsBase):
+    pass
+
+class SettingsUpdate(BaseModel):
+    value: Optional[Any] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class SettingsResponse(SettingsBase):
+    id: int
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[int] = None
+
+# NEW: Audit Log Schemas
+class AuditLogBase(BaseModel):
+    action: str
+    resource: str
+    resource_id: Optional[int] = None
+    details: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class AuditLogResponse(AuditLogBase):
+    id: int
+    user_id: Optional[int] = None
+    created_at: datetime
+    user: Optional[UserResponse] = None
+
+# NEW: Dashboard Stats Schema
+class DashboardStats(BaseModel):
+    total_divisions: int
+    total_departments: int
+    total_employees: int
+    today_attendance: float
+    active_shifts: int
+    pending_approvals: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# NEW: System Backup Schema
+class BackupRequest(BaseModel):
+    include_data: bool = True
+    include_logs: bool = False
+    backup_name: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class BackupResponse(BaseModel):
+    backup_id: str
+    filename: str
+    size: str
+    created_at: datetime
+    download_url: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
