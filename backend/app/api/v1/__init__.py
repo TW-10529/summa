@@ -1,7 +1,7 @@
 # app/api/v1/__init__.py - FIXED VERSION
 from fastapi import APIRouter
 
-# Import routers correctly
+# Import all routers
 from .auth import router as auth_router
 from .users import router as users_router
 from .divisions import router as divisions_router
@@ -9,6 +9,7 @@ from .departments import router as departments_router
 from .settings import router as settings_router
 from .dashboard import router as dashboard_router
 from .division_manager import router as division_manager_router
+from .notifications import router as notifications_router  # ADD THIS LINE
 
 # Create the main API router
 api_router = APIRouter()
@@ -21,14 +22,16 @@ api_router.include_router(departments_router, prefix="/departments", tags=["depa
 api_router.include_router(settings_router, prefix="/settings", tags=["settings"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(division_manager_router, prefix="/division-manager", tags=["division-manager"])
+api_router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
 
 __all__ = [
-    "api_router",  # Export the main router
+    "api_router",
     "auth_router", 
     "users_router", 
     "divisions_router", 
     "departments_router",
     "settings_router",
     "dashboard_router",
-    "division_manager_router"
+    "division_manager_router",
+    "notifications_router"  # ADD THIS LINE
 ]

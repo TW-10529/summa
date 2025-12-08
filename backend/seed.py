@@ -1,11 +1,13 @@
+# seed.py - UPDATED WITH NOTIFICATIONS
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import SessionLocal, engine
 from app import models
-from app.auth import get_password_hash
+from app.auth_utils import get_password_hash
 from sqlalchemy import text
+from datetime import datetime, timedelta
 
 def seed_database():
     db = SessionLocal()
@@ -16,7 +18,10 @@ def seed_database():
         # Drop tables in correct order to avoid circular dependency
         print("Dropping existing tables...")
         with engine.connect() as conn:
-            # Drop tables manually in correct order
+            # Drop tables manually in correct order (include notifications)
+            conn.execute(text("DROP TABLE IF EXISTS notifications CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS audit_logs CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS system_settings CASCADE"))
             conn.execute(text("DROP TABLE IF EXISTS shifts CASCADE"))
             conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
             conn.execute(text("DROP TABLE IF EXISTS departments CASCADE"))
@@ -39,6 +44,7 @@ def seed_database():
             is_active=True
         )
         db.add(admin_user)
+        db.flush()  # Get the ID
         print("✓ Admin user created")
         
         # Create sample divisions
@@ -258,6 +264,7 @@ def seed_database():
             },
         ]
         
+        employee_users = {}
         for emp_data in employees_data:
             user = models.User(
                 email=emp_data["email"],
@@ -271,6 +278,8 @@ def seed_database():
                 is_active=True
             )
             db.add(user)
+            db.flush()
+            employee_users[emp_data["username"]] = user
             print(f"✓ Employee {emp_data['full_name']} created")
         
         # Create sample shifts
@@ -285,6 +294,154 @@ def seed_database():
             db.add(shift)
             print(f"✓ Shift {shift_data['name']} created")
         
+        # Create system settings
+        print("Creating system settings...")
+        system_settings = [
+            {
+                "key": "site_name",
+                "value": "FactoryShift Management System",
+                "category": "general",
+                "description": "Name of the application"
+            },
+            {
+                "key": "timezone",
+                "value": "UTC",
+                "category": "general",
+                "description": "System timezone"
+            },
+            {
+                "key": "notifications_enabled",
+                "value": True,
+                "category": "notifications",
+                "description": "Enable system notifications"
+            },
+            {
+                "key": "email_notifications",
+                "value": False,
+                "category": "notifications",
+                "description": "Send email notifications"
+            },
+            {
+                "key": "push_notifications",
+                "value": True,
+                "category": "notifications",
+                "description": "Enable push notifications"
+            },
+            {
+                "key": "session_timeout",
+                "value": 30,
+                "category": "security",
+                "description": "Session timeout in minutes"
+            },
+        ]
+        
+        for setting_data in system_settings:
+            setting = models.SystemSettings(**setting_data)
+            db.add(setting)
+        
+        # Create sample notifications for different users
+        print("Creating sample notifications...")
+        sample_notifications = [
+            # For admin
+            {
+                "user_id": admin_user.id,
+                "title": "Welcome to FactoryShift",
+                "message": "System setup completed successfully. You can now start managing your factory operations.",
+                "type": "info",
+                "created_by": admin_user.id,
+                "created_at": datetime.now() - timedelta(days=2)
+            },
+            {
+                "user_id": admin_user.id,
+                "title": "System Backup Required",
+                "message": "Weekly system backup is pending. Please schedule a backup soon.",
+                "type": "warning",
+                "created_by": admin_user.id,
+                "created_at": datetime.now() - timedelta(hours=12),
+                "read": True
+            },
+            
+            # For production division manager
+            {
+                "user_id": division_manager_users["prod_manager"].id,
+                "title": "Production Target Met",
+                "message": "Congratulations! Your division has met the weekly production target.",
+                "type": "success",
+                "created_by": admin_user.id,
+                "created_at": datetime.now() - timedelta(days=1)
+            },
+            
+            # For department manager A
+            {
+                "user_id": department_manager_users["dept_manager_a"].id,
+                "title": "Shift Schedule Updated",
+                "message": "The morning shift schedule for Production Line A has been updated.",
+                "type": "info",
+                "created_by": division_manager_users["prod_manager"].id,
+                "created_at": datetime.now() - timedelta(hours=6)
+            },
+            
+            # For employee 1
+            {
+                "user_id": employee_users["employee1"].id,
+                "title": "Shift Reminder",
+                "message": "Your morning shift starts in 30 minutes. Please be on time.",
+                "type": "alert",
+                "created_by": department_manager_users["dept_manager_a"].id,
+                "created_at": datetime.now() - timedelta(hours=1)
+            },
+            
+            # For employee 2
+            {
+                "user_id": employee_users["employee2"].id,
+                "title": "Performance Review",
+                "message": "Your quarterly performance review is scheduled for next week.",
+                "type": "info",
+                "created_by": department_manager_users["dept_manager_a"].id,
+                "created_at": datetime.now() - timedelta(days=3),
+                "read": True
+            },
+        ]
+        
+        for notif_data in sample_notifications:
+            notification = models.Notification(**notif_data)
+            db.add(notification)
+        
+        print("✓ Sample notifications created")
+        
+        # Create audit logs
+        print("Creating audit logs...")
+        audit_logs = [
+            {
+                "user_id": admin_user.id,
+                "action": "system_setup",
+                "resource": "system",
+                "details": {"action": "initial_database_seeding"},
+                "created_at": datetime.now() - timedelta(days=2)
+            },
+            {
+                "user_id": division_manager_users["prod_manager"].id,
+                "action": "login",
+                "resource": "auth",
+                "ip_address": "192.168.1.100",
+                "created_at": datetime.now() - timedelta(hours=8)
+            },
+            {
+                "user_id": department_manager_users["dept_manager_a"].id,
+                "action": "update",
+                "resource": "schedule",
+                "resource_id": 1,
+                "details": {"shift": "morning", "changes": "start_time"},
+                "created_at": datetime.now() - timedelta(hours=5)
+            },
+        ]
+        
+        for log_data in audit_logs:
+            audit_log = models.AuditLog(**log_data)
+            db.add(audit_log)
+        
+        print("✓ Audit logs created")
+        
         db.commit()
         print("\n✅ Database seeded successfully!")
         print("\nTest credentials:")
@@ -293,6 +450,11 @@ def seed_database():
         print("Quality Division Manager: quality_manager / password123")
         print("Department Manager A: dept_manager_a / password123")
         print("Employee 1: employee1 / password123")
+        print("\nFeatures available:")
+        print("- Full notification system with sample data")
+        print("- System settings pre-configured")
+        print("- Audit logs for tracking")
+        print("- All relationships properly configured")
         
     except Exception as e:
         print(f"\n❌ Error seeding database: {e}")
