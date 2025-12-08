@@ -11,7 +11,7 @@ import traceback
 
 from app import models, schemas
 from app.database import get_db
-from app.api.v1.auth import get_current_active_user
+from app.auth import get_current_active_user
 
 router = APIRouter()
 
