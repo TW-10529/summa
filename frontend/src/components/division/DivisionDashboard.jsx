@@ -8,7 +8,8 @@ import Notifications from './Notifications';
 import DivisionSettings from './DivisionSettings';
 import { 
   Building2, Users, Clock, BarChart3, TrendingUp, Layers, 
-  Bell, FileText, CheckCircle, Settings as SettingsIcon, ArrowLeft 
+  Bell, FileText, CheckCircle, Settings as SettingsIcon, ArrowLeft,
+  LogIn, LogOut, AlertTriangle, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { divisionManagerService } from '../../services/divisionManagerService';
@@ -20,7 +21,23 @@ const DivisionDashboard = ({ activeTab }) => {
   const [loading, setLoading] = useState(true);
   const [divisionStats, setDivisionStats] = useState(null);
   const [departments, setDepartments] = useState([]);
-  const [attendanceData, setAttendanceData] = useState(null);
+  
+  // Check-in/out states
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [checkInTime, setCheckInTime] = useState(null);
+  const [checkOutTime, setCheckOutTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [lateStatus, setLateStatus] = useState(null);
+  const [alreadyCheckedInToday, setAlreadyCheckedInToday] = useState(false);
+  const [alreadyCheckedOutToday, setAlreadyCheckedOutToday] = useState(false);
+  
+  const shiftStartTime = '08:00'; // Shift starts at 8:00 AM
+
+  // Generate unique localStorage keys for each manager
+  const getManagerStorageKey = (key) => {
+    const managerId = user?.id || 'unknown';
+    return `${key}_DivManager_${managerId}`;
+  };
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -43,7 +60,201 @@ const DivisionDashboard = ({ activeTab }) => {
     };
 
     loadDashboardData();
-  }, [activeTab]);
+    
+    // Check local storage for today's check-in/out - USING UNIQUE KEYS
+    const today = new Date().toDateString();
+    const storedCheckInDate = localStorage.getItem(getManagerStorageKey('lastCheckInDate'));
+    const storedCheckOutDate = localStorage.getItem(getManagerStorageKey('lastCheckOutDate'));
+    
+    if (storedCheckInDate === today) {
+      setAlreadyCheckedInToday(true);
+      const storedCheckInTime = localStorage.getItem(getManagerStorageKey('checkInTime'));
+      if (storedCheckInTime) {
+        setCheckInTime(new Date(storedCheckInTime));
+        setIsCheckedIn(true);
+        checkLateStatus(new Date(storedCheckInTime));
+      }
+    }
+    
+    if (storedCheckOutDate === today) {
+      setAlreadyCheckedOutToday(true);
+      const storedCheckOutTime = localStorage.getItem(getManagerStorageKey('checkOutTime'));
+      if (storedCheckOutTime) {
+        setCheckOutTime(new Date(storedCheckOutTime));
+      }
+    }
+  }, [activeTab, user]);
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return () => clearInterval(timer);
+  }, []);
+
+  // Helper functions for check-in/out
+  const formatTime = (date) => {
+    return date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  };
+
+  const parseTimeString = (timeString) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+
+  const checkLateStatus = (checkInTime) => {
+    const shiftStart = parseTimeString(shiftStartTime);
+    const checkIn = new Date(checkInTime);
+    const lateMs = checkIn.getTime() - shiftStart.getTime();
+    const lateMinutes = Math.floor(lateMs / (1000 * 60));
+    
+    let status = 'On Time';
+    let type = 'success';
+    let display = 'On Time';
+    
+    if (lateMinutes <= 0) {
+      status = 'On Time';
+      type = 'success';
+      display = 'On Time';
+    } else if (lateMinutes <= 15) {
+      status = 'Slightly Late';
+      type = 'warning';
+      display = 'Late Login (Slightly Late)';
+    } else if (lateMinutes <= 60) {
+      status = 'Very Late';
+      type = 'error';
+      display = 'Late Login (Very Late)';
+    } else {
+      const hours = Math.floor(lateMinutes / 60);
+      const remainingMinutes = lateMinutes % 60;
+      status = 'Very Late';
+      type = 'error';
+      display = `Late Login (${hours}h ${remainingMinutes}m)`;
+    }
+    
+    setLateStatus({
+      status,
+      minutes: lateMinutes,
+      type,
+      display
+    });
+    
+    // Send attendance to admin system (simulated)
+    sendAttendanceToAdmin(checkInTime, lateMinutes, status);
+  };
+
+  const sendAttendanceToAdmin = async (checkInTime, lateMinutes, status) => {
+    try {
+      // This would be an API call to admin system
+      const attendanceRecord = {
+        managerId: user?.id,
+        managerName: user?.name,
+        division: divisionStats?.division?.name,
+        date: new Date().toISOString().split('T')[0],
+        checkInTime: new Date(checkInTime).toISOString(),
+        lateMinutes,
+        status,
+        timestamp: new Date().toISOString(),
+        managerEmail: user?.email // Added for better identification
+      };
+      
+      console.log('Sending attendance to admin system:', attendanceRecord);
+      
+      // Store locally with unique key for each manager
+      localStorage.setItem(getManagerStorageKey('managerAttendanceRecord'), JSON.stringify(attendanceRecord));
+      
+    } catch (error) {
+      console.error('Error sending attendance to admin:', error);
+    }
+  };
+
+  const handleCheckIn = () => {
+    const now = new Date();
+    const today = now.toDateString();
+    
+    if (alreadyCheckedInToday) {
+      alert('You have already checked in today!');
+      return;
+    }
+    
+    setCheckInTime(now);
+    setCheckOutTime(null);
+    setIsCheckedIn(true);
+    setAlreadyCheckedInToday(true);
+    
+    // Save to localStorage with UNIQUE key for each division manager
+    localStorage.setItem(getManagerStorageKey('lastCheckInDate'), today);
+    localStorage.setItem(getManagerStorageKey('checkInTime'), now.toISOString());
+    
+    // Check if manager is late
+    checkLateStatus(now);
+    
+    console.log(`${user?.name || 'Division Manager'} checked in at:`, now);
+  };
+
+  const handleCheckOut = () => {
+    const now = new Date();
+    const today = now.toDateString();
+    
+    if (alreadyCheckedOutToday) {
+      alert('You have already checked out today!');
+      return;
+    }
+    
+    if (!alreadyCheckedInToday) {
+      alert('You need to check in first!');
+      return;
+    }
+    
+    setCheckOutTime(now);
+    setIsCheckedIn(false);
+    setAlreadyCheckedOutToday(true);
+    
+    // Save to localStorage with UNIQUE key
+    localStorage.setItem(getManagerStorageKey('lastCheckOutDate'), today);
+    localStorage.setItem(getManagerStorageKey('checkOutTime'), now.toISOString());
+    
+    // Update admin record with check-out time
+    updateAdminAttendanceWithCheckOut(now);
+    
+    console.log(`${user?.name || 'Division Manager'} checked out at:`, now);
+  };
+
+  const updateAdminAttendanceWithCheckOut = async (checkOutTime) => {
+    try {
+      const existingRecord = localStorage.getItem(getManagerStorageKey('managerAttendanceRecord'));
+      if (existingRecord) {
+        const record = JSON.parse(existingRecord);
+        record.checkOutTime = checkOutTime.toISOString();
+        localStorage.setItem(getManagerStorageKey('managerAttendanceRecord'), JSON.stringify(record));
+        console.log('Updated admin record with check-out:', record);
+      }
+    } catch (error) {
+      console.error('Error updating admin record:', error);
+    }
+  };
+
+  const getStatusColor = (type) => {
+    switch(type) {
+      case 'success': return 'text-green-600 bg-green-50';
+      case 'warning': return 'text-yellow-600 bg-yellow-50';
+      case 'error': return 'text-red-600 bg-red-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getStatusIcon = (type) => {
+    switch(type) {
+      case 'success': return <CheckCircle className="w-5 h-5" />;
+      case 'warning': return <AlertTriangle className="w-5 h-5" />;
+      case 'error': return <AlertCircle className="w-5 h-5" />;
+      default: return null;
+    }
+  };
 
   const stats = [
     { 
@@ -142,6 +353,106 @@ const DivisionDashboard = ({ activeTab }) => {
           <div className="bg-white/20 p-4 rounded-xl">
             <Building2 className="w-8 h-8" />
           </div>
+        </div>
+      </div>
+
+      {/* Manager Attendance Section */}
+      <div className="card p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Your Attendance Today</h3>
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-1">Current Time</p>
+                <p className="text-xl font-bold text-gray-800">{formatTime(currentTime)}</p>
+              </div>
+              <div className="h-10 w-px bg-gray-200"></div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-1">Check In</p>
+                <p className="text-xl font-bold text-green-600">
+                  {checkInTime ? formatTime(checkInTime) : '--:--'}
+                </p>
+              </div>
+              <div className="h-10 w-px bg-gray-200"></div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-1">Check Out</p>
+                <p className="text-xl font-bold text-red-600">
+                  {checkOutTime ? formatTime(checkOutTime) : '--:--'}
+                </p>
+              </div>
+            </div>
+            
+            {/* Late Status Display */}
+            {checkInTime && lateStatus && (
+              <div className="flex items-center space-x-2 mb-4">
+                {getStatusIcon(lateStatus.type)}
+                <span className={`font-medium ${lateStatus.type === 'error' ? 'text-red-600' : lateStatus.type === 'warning' ? 'text-yellow-600' : 'text-green-600'}`}>
+                  {lateStatus.display}
+                </span>
+              </div>
+            )}
+            
+            {/* Manager's Shift Info */}
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Your Shift</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-800">
+                    Manager Shift ({shiftStartTime} - 17:00)
+                  </p>
+                  <p className="text-sm text-gray-600">Division Manager - {divisionStats?.division?.name}</p>
+                </div>
+                {checkInTime && lateStatus && (
+                  <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${getStatusColor(lateStatus.type)}`}>
+                    {getStatusIcon(lateStatus.type)}
+                    <span className="font-medium">
+                      {lateStatus.status}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleCheckIn}
+              disabled={isCheckedIn || alreadyCheckedInToday}
+              className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                isCheckedIn || alreadyCheckedInToday
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              <LogIn className="w-5 h-5 mr-2" />
+              {alreadyCheckedInToday ? 'Already Checked In' : 'Check In'}
+            </button>
+            <button
+              onClick={handleCheckOut}
+              disabled={!isCheckedIn || alreadyCheckedOutToday || !alreadyCheckedInToday}
+              className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                !isCheckedIn || alreadyCheckedOutToday || !alreadyCheckedInToday
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+              }`}
+            >
+              <LogOut className="w-5 h-5 mr-2" />
+              {alreadyCheckedOutToday ? 'Already Checked Out' : 'Check Out'}
+            </button>
+          </div>
+        </div>
+
+        {/* Status Indicator */}
+        <div className="mt-4 flex items-center space-x-2">
+          <div className={`w-3 h-3 rounded-full ${isCheckedIn ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+          <span className="text-sm text-gray-600">
+            {isCheckedIn ? 'Currently checked in and working' : 'Currently checked out'}
+            {checkInTime && lateStatus && lateStatus.minutes > 0 && (
+              <span className={`ml-2 ${lateStatus.type === 'error' ? 'text-red-600' : lateStatus.type === 'warning' ? 'text-yellow-600' : 'text-green-600'}`}>
+                ({lateStatus.display})
+              </span>
+            )}
+          </span>
         </div>
       </div>
 

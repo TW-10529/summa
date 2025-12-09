@@ -7,18 +7,20 @@ const Requests = () => {
   
   const [newRequest, setNewRequest] = useState({
     type: 'leave',
-    startDate: '',
-    endDate: '',
+    date: '', // Used for leave requests
+    startTime: '', // Used for overtime requests
+    endTime: '', // Used for overtime requests
     reason: '',
   });
 
-  const requests = {
+  // Initial requests data
+  const initialRequests = {
     pending: [
       { id: 1, type: 'leave', title: 'Annual Leave', period: 'Jan 20-22, 2024', submitted: 'Jan 10, 2024', status: 'pending' },
       { id: 2, type: 'shift-swap', title: 'Shift Swap Request', period: 'Jan 18, 2024', submitted: 'Jan 12, 2024', status: 'pending' },
     ],
     approved: [
-      { id: 3, type: 'overtime', title: 'Overtime Request', period: 'Jan 15, 2024', submitted: 'Jan 8, 2024', status: 'approved' },
+      { id: 3, type: 'overtime', title: 'Overtime Request', period: 'Jan 15, 2024 (18:00-21:00)', submitted: 'Jan 8, 2024', status: 'approved' },
       { id: 4, type: 'leave', title: 'Sick Leave', period: 'Jan 5, 2024', submitted: 'Jan 4, 2024', status: 'approved' },
     ],
     rejected: [
@@ -26,13 +28,56 @@ const Requests = () => {
     ],
   };
 
+  // Use state for requests
+  const [requests, setRequests] = useState(initialRequests);
+
   const getRequestIcon = (type) => {
     switch (type) {
       case 'leave': return <Calendar className="w-5 h-5 text-blue-500" />;
       case 'shift-swap': return <Clock className="w-5 h-5 text-purple-500" />;
       case 'overtime': return <ClockIcon className="w-5 h-5 text-orange-500" />;
+      case 'shift-change': return <Clock className="w-5 h-5 text-red-500" />;
       default: return <FileText className="w-5 h-5 text-gray-500" />;
     }
+  };
+
+  const getRequestTitle = (type) => {
+    switch (type) {
+      case 'leave': return 'Leave Request';
+      case 'overtime': return 'Overtime Request';
+      default: return 'Request';
+    }
+  };
+
+  // Date formatting
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Format time for display
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    // Convert HH:MM to 12-hour format
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  // Get period based on request type
+  const getPeriod = (type, date, startTime, endTime) => {
+    const formattedDate = formatDate(date);
+    
+    if (type === 'overtime' && startTime && endTime) {
+      const formattedStart = formatTime(startTime);
+      const formattedEnd = formatTime(endTime);
+      return `${formattedDate} (${formattedStart}-${formattedEnd})`;
+    }
+    
+    return formattedDate;
   };
 
   const getStatusIcon = (status) => {
@@ -51,19 +96,70 @@ const Requests = () => {
     }
   };
 
+  // Enhanced submit handler
   const handleSubmitRequest = () => {
-    if (!newRequest.startDate || !newRequest.reason) return;
+    // Validation based on request type
+    if (newRequest.type === 'leave') {
+      if (!newRequest.date || !newRequest.reason) {
+        alert('Please fill in date and reason for leave request!');
+        return;
+      }
+    } else if (newRequest.type === 'overtime') {
+      if (!newRequest.date || !newRequest.startTime || !newRequest.endTime || !newRequest.reason) {
+        alert('Please fill in date, start time, end time, and reason for overtime request!');
+        return;
+      }
+      // Validate time order
+      if (newRequest.startTime >= newRequest.endTime) {
+        alert('End time must be after start time!');
+        return;
+      }
+    }
     
-    // In real app, you would send API request here
-    console.log('Submitting request:', newRequest);
+    // Create new request object
+    const newRequestId = Date.now();
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     
+    const requestToAdd = {
+      id: newRequestId,
+      type: newRequest.type,
+      title: getRequestTitle(newRequest.type),
+      period: getPeriod(newRequest.type, newRequest.date, newRequest.startTime, newRequest.endTime),
+      submitted: today,
+      status: 'pending',
+      reason: newRequest.reason
+    };
+    
+    // Add the new request to pending list
+    setRequests(prev => ({
+      ...prev,
+      pending: [...prev.pending, requestToAdd]
+    }));
+    
+    console.log('Submitting request:', requestToAdd);
+    
+    // Reset form and close modal
     setShowNewRequest(false);
     setNewRequest({
       type: 'leave',
-      startDate: '',
-      endDate: '',
+      date: '',
+      startTime: '',
+      endTime: '',
       reason: '',
     });
+    
+    // Switch to pending tab to show the new request
+    setActiveTab('pending');
+  };
+
+  // Cancel request handler
+  const handleCancelRequest = (requestId) => {
+    if (window.confirm('Are you sure you want to cancel this request?')) {
+      setRequests(prev => ({
+        ...prev,
+        pending: prev.pending.filter(request => request.id !== requestId)
+      }));
+    }
   };
 
   return (
@@ -125,7 +221,11 @@ const Requests = () => {
                     <h4 className="font-semibold text-gray-800">{request.title}</h4>
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
+                        {request.type === 'overtime' ? (
+                          <ClockIcon className="w-4 h-4 text-gray-500" />
+                        ) : (
+                          <Calendar className="w-4 h-4 text-gray-500" />
+                        )}
                         <span className="text-sm text-gray-700">{request.period}</span>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -151,7 +251,10 @@ const Requests = () => {
                     </span>
                   </div>
                   {request.status === 'pending' && (
-                    <button className="text-sm text-red-600 hover:text-red-800">
+                    <button 
+                      onClick={() => handleCancelRequest(request.id)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
                       Cancel
                     </button>
                   )}
@@ -164,53 +267,74 @@ const Requests = () => {
 
       {/* New Request Modal */}
       {showNewRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
             <h4 className="text-lg font-semibold text-gray-800 mb-4">New Request</h4>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Request Type</label>
                 <select
                   value={newRequest.type}
-                  onChange={(e) => setNewRequest({...newRequest, type: e.target.value})}
+                  onChange={(e) => setNewRequest({
+                    ...newRequest, 
+                    type: e.target.value,
+                    startTime: '', // Reset times when switching from overtime
+                    endTime: ''
+                  })}
                   className="input-field"
                 >
                   <option value="leave">Leave Request</option>
-                  <option value="shift-swap">Shift Swap</option>
-                  <option value="overtime">Overtime</option>
-                  <option value="shift-change">Shift Change</option>
+                  <option value="overtime">Overtime Request</option>
                 </select>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={newRequest.startDate}
-                    onChange={(e) => setNewRequest({...newRequest, startDate: e.target.value})}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    type="date"
-                    value={newRequest.endDate}
-                    onChange={(e) => setNewRequest({...newRequest, endDate: e.target.value})}
-                    className="input-field"
-                  />
-                </div>
+              {/* Date Field (common for both types) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                <input
+                  type="date"
+                  value={newRequest.date}
+                  onChange={(e) => setNewRequest({...newRequest, date: e.target.value})}
+                  className="input-field"
+                  required
+                />
               </div>
               
+              {/* Time Fields (only for overtime) */}
+              {newRequest.type === 'overtime' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time *</label>
+                    <input
+                      type="time"
+                      value={newRequest.startTime}
+                      onChange={(e) => setNewRequest({...newRequest, startTime: e.target.value})}
+                      className="input-field"
+                      required={newRequest.type === 'overtime'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
+                    <input
+                      type="time"
+                      value={newRequest.endTime}
+                      onChange={(e) => setNewRequest({...newRequest, endTime: e.target.value})}
+                      className="input-field"
+                      required={newRequest.type === 'overtime'}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason *</label>
                 <textarea
                   value={newRequest.reason}
                   onChange={(e) => setNewRequest({...newRequest, reason: e.target.value})}
                   placeholder="Please provide details for your request..."
                   rows="3"
                   className="input-field"
+                  required
                 />
               </div>
               
